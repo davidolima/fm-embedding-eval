@@ -23,12 +23,6 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Authenticate to HF
-RUN if [ ! -z "$HUGGINGFACE_TOKEN" ]; then \
-    pip install -U "huggingface_hub[cli]" && \
-    huggingface-cli login --token $HUGGINGFACE_TOKEN --add-to-git-credential; \
-    fi
-
 # Copy all files from current directory to working directory
 COPY . .
 
