@@ -33,7 +33,7 @@ class UNI2(nn.Module):
             timm_kwargs[key] = value
 
         # Load model with specified configs
-        return UNI2.download_model()
+        self.model = UNI2.download_model()
         self.model.eval()
 
         # Get model transforms
