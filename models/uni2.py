@@ -26,6 +26,8 @@ class UNI2(nn.Module):
     Embedding extractor from the UNI2-h model.
     https://huggingface.co/MahmoodLab/UNI2-h
     """
+    name = "UNI2"
+    feat_shape = 1536
     def __init__(self, **kwargs):
         super().__init__()
 
@@ -56,3 +58,7 @@ class UNI2(nn.Module):
         with torch.inference_mode():
             x = self.transforms(x)
             return self.model(x)
+
+if __name__ == '__main__':
+    m = UNI2()
+    print(m(torch.rand((1,3,224,224))).shape)

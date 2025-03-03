@@ -10,6 +10,8 @@ class UNI(nn.Module):
     Embedding extractor from the UNI model.
     https://huggingface.co/MahmoodLab/UNI
     """
+    name = "UNI"
+    feat_shape = 1024
     def __init__(self, **kwargs):
         super().__init__()
 
@@ -38,3 +40,7 @@ class UNI(nn.Module):
         with torch.inference_mode():
             x = self.transforms(x)
             return self.model(x)
+
+if __name__ == '__main__':
+    m = UNI()
+    print(m(torch.rand((1,3,224,224))).shape)

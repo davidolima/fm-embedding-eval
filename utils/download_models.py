@@ -29,7 +29,7 @@ def download_models():
 
     print("[!] Downloading models")
     for model in MODELS:
-        print(f"    > Downloading {model.__name__}...")
+        print(f"    > Downloading {model.name}...")
         model.download_model()
     print("[!] Models downloaded successfully.")
 

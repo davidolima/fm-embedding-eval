@@ -3,6 +3,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
 from PIL import Image
+import numpy as np
 
 import os
 from typing import *
@@ -65,7 +66,7 @@ class GlomerulusDataset(Dataset):
     def __getitem__(self, idx) -> Tuple[torch.Tensor, int]:
         img, label = self.data[idx]
 
-        img = Image.open(img)
+        img = np.array(Image.open(img))
         if self.transforms:
             img = self.transforms(img)
 
@@ -73,6 +74,7 @@ class GlomerulusDataset(Dataset):
 
 if __name__ == '__main__':
     ds = GlomerulusDataset("/datasets/terumo-data-jpeg")
+    print(ds)
 
     image, label = ds[0]
 

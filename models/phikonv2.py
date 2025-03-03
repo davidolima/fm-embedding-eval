@@ -8,6 +8,8 @@ class PhikonV2(nn.Module):
     Embedding extractor from the Phikon-V2 model.
     https://huggingface.co/owkin/phikon-v2
     """
+    name = "PhikonV2"
+    feat_shape = 1024
     def __init__(self):
         super().__init__()
 
@@ -24,3 +26,7 @@ class PhikonV2(nn.Module):
             outputs = self.model(**self.processor(x, return_tensors="pt"))
             features = outputs.last_hidden_state[:, 0, :]
         return features
+
+if __name__ == '__main__':
+    m = PhikonV2()
+    print(m(torch.rand((1,3,224,224))).shape)
