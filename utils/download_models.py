@@ -23,7 +23,7 @@ def authenticate_hf():
             print("[ERROR] Error during authentication:", e)
     return authenticated
 
-def download_models(ckpt_dir: str):
+def download_models():
     if not authenticate_hf():
         raise Exception("[ERROR] Failed to authenticate. Can't download models.")
 
@@ -34,4 +34,4 @@ def download_models(ckpt_dir: str):
     print("[!] Models downloaded successfully.")
 
 if __name__ == '__main__':
-    download_models("./models/checkpoints")
+    download_models()
