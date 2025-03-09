@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from typing import *
+
 from transformers import AutoImageProcessor, AutoModel
 
 class Phikon(nn.Module):
@@ -9,12 +11,13 @@ class Phikon(nn.Module):
     https://huggingface.co/owkin/phikon
     """
     name = "Phikon"
-    feat_shape = 768
-    def __init__(self):
+    feat_dim = 768
+    def __init__(self, device: Literal['cpu', 'cuda'] = 'cuda'):
         super().__init__()
 
         self.processor = AutoImageProcessor.from_pretrained("owkin/phikon")
         self.model = Phikon.download_model()
+        self.model.to(device)
         self.model.eval()
 
     @staticmethod

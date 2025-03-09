@@ -5,6 +5,8 @@ import timm
 from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
 
+from typing import *
+
 timm_kwargs = {
     'img_size': 224, 
     'patch_size': 14, 
@@ -27,8 +29,8 @@ class UNI2(nn.Module):
     https://huggingface.co/MahmoodLab/UNI2-h
     """
     name = "UNI2"
-    feat_shape = 1536
-    def __init__(self, **kwargs):
+    feat_dim = 1536
+    def __init__(self, device: Literal['cpu','cuda'] = 'cuda', **kwargs):
         super().__init__()
 
         for key,value in kwargs:
@@ -36,6 +38,7 @@ class UNI2(nn.Module):
 
         # Load model with specified configs
         self.model = UNI2.download_model()
+        self.model.to(device)
         self.model.eval()
 
         # Get model transforms

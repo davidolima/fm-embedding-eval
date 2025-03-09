@@ -3,18 +3,21 @@ import torch.nn as nn
 
 from transformers import AutoImageProcessor, AutoModel
 
+from typing import *
+
 class PhikonV2(nn.Module):
     """
     Embedding extractor from the Phikon-V2 model.
     https://huggingface.co/owkin/phikon-v2
     """
     name = "PhikonV2"
-    feat_shape = 1024
-    def __init__(self):
+    feat_dim = 1024
+    def __init__(self, device:Literal['cuda','cpu'] = 'cuda'):
         super().__init__()
 
         self.processor = AutoImageProcessor.from_pretrained("owkin/phikon-v2")
         self.model = PhikonV2.download_model()
+        self.model.to(device)
         self.model.eval()
 
     @staticmethod

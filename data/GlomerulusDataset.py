@@ -63,14 +63,14 @@ class GlomerulusDataset(Dataset):
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, idx) -> Tuple[torch.Tensor, int]:
-        img, label = self.data[idx]
+    def __getitem__(self, idx) -> Tuple[torch.Tensor, int, str]:
+        img_path, label = self.data[idx]
 
-        img = np.array(Image.open(img))
+        img = np.array(Image.open(img_path))
         if self.transforms:
             img = self.transforms(img)
 
-        return (img, label)
+        return (img, label, img_path)
 
 if __name__ == '__main__':
     ds = GlomerulusDataset("/datasets/terumo-data-jpeg")

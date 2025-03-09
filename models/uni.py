@@ -5,18 +5,21 @@ import timm
 from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
 
+from typing import *
+
 class UNI(nn.Module):
     """
     Embedding extractor from the UNI model.
     https://huggingface.co/MahmoodLab/UNI
     """
     name = "UNI"
-    feat_shape = 1024
-    def __init__(self, **kwargs):
+    feat_dim = 1024
+    def __init__(self, device: Literal['cpu', 'cuda'] = 'cuda', **kwargs):
         super().__init__()
 
         # Load model with specified configs
         self.model = UNI.download_model()
+        self.model.to(device)
         self.model.eval()
 
         # Get model transforms
