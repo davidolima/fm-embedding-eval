@@ -9,7 +9,7 @@ import torchvision.transforms as T
 from torch.utils.data import Dataset, DataLoader
 
 from embedding.utils import save_embedding_to_file
-from data.GlomerulusDataset import GlomerulusDataset 
+from data.glomerulus import GlomerulusDataset 
 from utils.download_models import MODELS, download_models, authenticate_hf
 
 
@@ -37,6 +37,7 @@ def single_model_extraction(
         labels.extend(y)
         fnames.extend(path)
     end_time = perf_counter()
+
     dt = end_time - start_time
     if verbose:
         print(f"[!] Extraction using {model.name} finished in {dt:.2f} seconds.")
@@ -58,6 +59,8 @@ def multiple_model_extraction(
     pre_download_models: bool = True,
     device: Literal['cpu', 'cuda'] = 'cuda',
 ):
+    print("[*] Evaluating the following models:", [model.name for model in models])
+
     if pre_download_models:
         download_models()
 
@@ -74,6 +77,7 @@ def multiple_model_extraction(
         single_model_extraction(
             model = model,
             dataset = dataset,
+            batch_size = batch_size,
             output_path = model_output_path,
             verbose = True,
             device = device,
@@ -86,20 +90,33 @@ def multiple_model_extraction(
     return
 
 if __name__ == '__main__':
+    import argparse
+    def read_cli_args():
+        parser = argparse.ArgumentParser(prog="Embedding extraction using foundation models")
+        parser.add_argument("-i", "--input-dir",  type=str, default="/datasets/terumo-data-jpeg/")
+        parser.add_argument("-o", "--output-dir", type=str, default="./extracted-embeddings/")
+        parser.add_argument("-b", "--batch-size", type=int, default=64)
+        parser.add_argument("-d", "--device",     type=str, default="cuda")
+        parser.add_argument("-s", "--skip-model", action="extend", nargs='+')
+        parser.add_argument("--image-size", type=int, default=224)
+        parser.add_argument("--download-on-demand", action="store_true", help="Downloads models on demand. By default, downloads all models before the extraction begins.")
+        return parser.parse_args()
+
+    args = read_cli_args()
     authenticate_hf()
 
     transforms = T.Compose([
         T.ToTensor(),
-        T.Resize(224),
+        T.Resize((args.image_size, args.image_size)),
     ])
     
-    dataset = GlomerulusDataset(root_dir="/datasets/terumo-data-jpeg/", transforms=transforms) 
+    dataset = GlomerulusDataset(root_dir=args.input_dir, transforms=transforms) 
     
     multiple_model_extraction(
-        models=MODELS,
+        models=[model for model in MODELS if model.name.lower() not in args.skip_model],
         dataset=dataset,
-        batch_size=64,
-        output_path="./features/",
-        pre_download_models=True,
-        device='cuda',
+        batch_size=args.batch_size,
+        output_path=args.output_dir,
+        pre_download_models=(not args.download_on_demand),
+        device=args.device,
     )

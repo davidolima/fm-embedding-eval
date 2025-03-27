@@ -14,11 +14,14 @@ class Phikon(nn.Module):
     feat_dim = 768
     def __init__(self, device: Literal['cpu', 'cuda'] = 'cuda'):
         super().__init__()
+        
+        self.device = device
+
+        self.model = Phikon.download_model()
+        self.model.to(self.device)
+        self.model.eval()
 
         self.processor = AutoImageProcessor.from_pretrained("owkin/phikon")
-        self.model = Phikon.download_model()
-        self.model.to(device)
-        self.model.eval()
 
     @staticmethod
     def download_model():
@@ -26,10 +29,13 @@ class Phikon(nn.Module):
 
     def forward(self, x: torch.Tensor):
         with torch.inference_mode():
-            outputs = self.model(**self.processor(x, return_tensors="pt"))
+            x = self.processor(x.to(torch.uint8), return_tensors='pt').to(self.device)
+            outputs = self.model(**x)
             features = outputs.last_hidden_state[:, 0, :]
         return features
 
 if __name__ == '__main__':
-    m = Phikon()
-    print(m(torch.rand((1,3,224,224))).shape)
+    m = Phikon(device='cuda')
+    rand_sample = torch.rand((1,3,224,224)).to('cuda')
+    output = m(rand_sample)
+    print(output.shape)

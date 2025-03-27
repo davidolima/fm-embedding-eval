@@ -15,10 +15,13 @@ class PhikonV2(nn.Module):
     def __init__(self, device:Literal['cuda','cpu'] = 'cuda'):
         super().__init__()
 
-        self.processor = AutoImageProcessor.from_pretrained("owkin/phikon-v2")
+        self.device = device
+
         self.model = PhikonV2.download_model()
-        self.model.to(device)
+        self.model.to(self.device)
         self.model.eval()
+
+        self.processor = AutoImageProcessor.from_pretrained("owkin/phikon-v2")
 
     @staticmethod
     def download_model():
@@ -26,7 +29,8 @@ class PhikonV2(nn.Module):
 
     def forward(self, x: torch.Tensor):
         with torch.inference_mode():
-            outputs = self.model(**self.processor(x, return_tensors="pt"))
+            x = self.processor(x.to(torch.uint8), return_tensors="pt").to(self.device)
+            outputs = self.model(**x)
             features = outputs.last_hidden_state[:, 0, :]
         return features
 
