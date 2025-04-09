@@ -97,7 +97,7 @@ if __name__ == '__main__':
         parser.add_argument("-o", "--output-dir", type=str, default="./extracted-embeddings/")
         parser.add_argument("-b", "--batch-size", type=int, default=64)
         parser.add_argument("-d", "--device",     type=str, default="cuda")
-        parser.add_argument("-s", "--skip-model", action="extend", nargs='+')
+        parser.add_argument("-s", "--skip-model", action="extend", nargs='+', default=[])
         parser.add_argument("--image-size", type=int, default=224)
         parser.add_argument("--download-on-demand", action="store_true", help="Downloads models on demand. By default, downloads all models before the extraction begins.")
         return parser.parse_args()
