@@ -10,10 +10,10 @@ class Phikon(nn.Module):
     Embedding extractor from the Phikon model.
     https://huggingface.co/owkin/phikon
     """
-    name = "Phikon"
-    feat_dim = 768
     def __init__(self, device: Literal['cpu', 'cuda'] = 'cuda'):
         super().__init__()
+        self.name = "Phikon"
+        self.feat_dim = 768
         
         self.device = device
 
@@ -22,6 +22,12 @@ class Phikon(nn.Module):
         self.model.eval()
 
         self.processor = AutoImageProcessor.from_pretrained("owkin/phikon")
+
+    def get_name(self):
+        return self.name
+
+    def get_feat_dim(self):
+        return self.get_feat_dim
 
     @staticmethod
     def download_model():

@@ -1,15 +1,7 @@
 import os
 from dotenv import load_dotenv
 from huggingface_hub import login
-from models import UNI, UNI2, Phikon, PhikonV2, MAE
-
-MODELS = [
-    UNI,
-    UNI2,
-    Phikon,
-    PhikonV2,
-    MAE,
-]
+from models import HF_MODELS 
 
 def authenticate_hf():
     authenticated = False
@@ -24,13 +16,16 @@ def authenticate_hf():
             print("[ERROR] Error during authentication:", e)
     return authenticated
 
-def download_models():
-    if not authenticate_hf():
-        raise Exception("[ERROR] Failed to authenticate. Can't download models.")
+def download_models(models):
+    for model in models:
+        if model in HF_MODELS: # only authenticate if there are hugging face models in list
+            if not authenticate_hf():
+                raise Exception("[ERROR] Failed to authenticate. Can't download models.")
+            break
 
     print("[!] Downloading models")
-    for model in MODELS:
-        print(f"    > Downloading {model.name}...")
+    for model in models:
+        print(f"    > Downloading {model.__name__}...")
         model.download_model()
     print("[!] Models downloaded successfully.")
 

@@ -13,12 +13,17 @@ class MAE(nn.Module):
     """
     Embedding extractor for the Masked Autoencoder model.
     """
-    name = "MAE"
-    def __init__(self, model_size: Literal['base','large','huge'] = 'base', device: Literal['cpu', 'cuda'] = 'cuda', **kwargs):
+    def __init__(
+        self,
+        checkpoint_path: str = "./checkpoints/MAE/base.pth",
+        model_size: Literal['base','large','huge'] = 'base', 
+        repr_method: Literal['full', 'cls_token_only', 'mean', 'mean+cls'] = 'mean',
+        device: Literal['cpu', 'cuda'] = 'cuda',
+        **kwargs
+    ):
         super().__init__()
-
-        self.name = f"{MAE.name}_{model_size}"
-
+        self.name = f"MAE_{model_size}_{repr_method}"
+        
         # Load model with specified configs
         model_size = model_size.lower()
         if model_size == 'base':
@@ -33,8 +38,15 @@ class MAE(nn.Module):
         else:
             raise ValueError(f"Specified MAE model size does not exist: `{model_size}`. Available options are `base`, `large` and `huge`.")
 
+        self.model.load_state_dict(torch.load(checkpoint_path, weights_only=False)['model'], strict=False)
         self.model.to(device)
         self.model.eval()
+
+        if repr_method not in ('full', 'cls_token_only', 'mean', 'mean+cls'):
+            raise ValueError(f"MAE Embedding representation method not recognized: `{repr_method}`")
+        self.repr_method = repr_method
+        if self.repr_method == 'mean+cls':
+            self.feat_dim *= 2
 
         # MAE Transforms based on eval transforms found in
         # https://github.com/facebookresearch/mae/blob/main/util/datasets.py#L51
@@ -47,27 +59,63 @@ class MAE(nn.Module):
     def download_model():
         return
 
+    def get_name(self):
+        return self.name 
+
+    def get_feat_dim(self):
+        return self.feat_dim
+
     def forward(self, x: torch.Tensor):
         with torch.inference_mode():
             x = self.transforms(x)
             x, _, ids_restore =  self.model.forward_encoder(x,mask_ratio=0)
-            #x = MAE.get_ordered_mae_embeddings(x, ids_restore)
+            x = MAE.get_ordered_mae_embeddings(x, ids_restore)
+            x = self.get_embed_repr(x)
             return x
+    
+    def get_embed_repr(self, latent):
+        if self.repr_method == 'full':
+            return MAE.embed_repr_full(latent)
+        elif self.repr_method == 'cls_token_only':
+            return MAE.embed_repr_cls_tkn_only(latent)
+        elif self.repr_method == 'mean':
+            return MAE.embed_repr_avg_per_patch(latent)
+        elif self.repr_method == 'mean+cls':
+            return MAE.embed_repr_mean_and_cls_tkn(latent)
+        else:
+            raise RuntimeError("Unreachable.")
 
+    @staticmethod
+    def embed_repr_cls_tkn_only(latent):
+        return latent[:, 0, :]
+
+    @staticmethod
+    def embed_repr_full(latent):
+        return latent[:,1:,:]
+
+    @staticmethod
+    def embed_repr_avg_per_patch(latent):
+        return torch.mean(MAE.embed_repr_full(latent), dim=1)
+
+    @staticmethod
+    def embed_repr_mean_and_cls_tkn(latent):
+        cls_embedding = MAE.embed_repr_cls_tkn_only(latent)
+        patch_mean = MAE.embed_repr_avg_per_patch(latent)
+        full_embedding = torch.cat([cls_embedding,patch_mean], dim=1)
+        return full_embedding
+    
     @staticmethod
     def get_ordered_mae_embeddings(latent, ids_restore):
         """
         Uses id_restore to get original embedding positions
         """
         B, N, D = latent.shape
-        unshuffled = torch.zeros_like(latent)
 
-        for b in range(B):
-            for i in range(N):
-                idx = ids_restore[b, i].item()
-                if idx < N:
-                    unshuffled[b, idx] = latent[b, i]
-
+        unshuffled = torch.gather(
+            latent,
+            dim=1,
+            index=ids_restore.unsqueeze(-1).repeat(1,1,D)
+        )
         return unshuffled
 
 if __name__ == '__main__':

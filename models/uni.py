@@ -12,10 +12,10 @@ class UNI(nn.Module):
     Embedding extractor from the UNI model.
     https://huggingface.co/MahmoodLab/UNI
     """
-    name = "UNI"
-    feat_dim = 1024
     def __init__(self, device: Literal['cpu', 'cuda'] = 'cuda', **kwargs):
         super().__init__()
+        self.name = "UNI"
+        self.feat_dim = 1024
 
         # Load model with specified configs
         self.model = UNI.download_model()
@@ -29,6 +29,12 @@ class UNI(nn.Module):
                 model=self.model
             )
         )
+    
+    def get_name(self):
+        return self.name
+
+    def get_feat_dim(self):
+        return self.get_feat_dim
 
     @staticmethod
     def download_model():

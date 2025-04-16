@@ -28,10 +28,10 @@ class UNI2(nn.Module):
     Embedding extractor from the UNI2-h model.
     https://huggingface.co/MahmoodLab/UNI2-h
     """
-    name = "UNI2"
-    feat_dim = 1536
     def __init__(self, device: Literal['cpu','cuda'] = 'cuda', **kwargs):
         super().__init__()
+        self.name = "UNI2"
+        self.feat_dim = 1536
 
         for key,value in kwargs:
             timm_kwargs[key] = value
@@ -48,6 +48,12 @@ class UNI2(nn.Module):
                 model=self.model
             )
         )
+
+    def get_name(self):
+        return self.name
+
+    def get_feat_dim(self):
+        return self.get_feat_dim
 
     @staticmethod
     def download_model(): 
