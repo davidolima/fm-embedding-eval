@@ -6,7 +6,10 @@ from PIL import Image
 import numpy as np
 
 import os
+import glob
 from typing import *
+
+from config import Config
 
 class GlomerulusDataset(Dataset):
     def __init__(
@@ -29,7 +32,6 @@ class GlomerulusDataset(Dataset):
         self.classes = classes if classes is not None else \
                 ["Membranous", "Sclerosis", "Crescent", "Normal", "Hypercelularidade", "Podocitopatia"]
         
-
         self.data = GlomerulusDataset.load_data(self.root, self.classes)
 
     @staticmethod
@@ -47,7 +49,7 @@ class GlomerulusDataset(Dataset):
         for c, folders in class_folders.items():
             class_images = []
             for folder in folders:
-                folder_images = os.listdir(os.path.join(root_dir, folder))
+                folder_images = sum([glob.glob(os.path.join(root_dir, folder, f"*.{ext}")) for ext in Config.SUPPORTED_IMAGE_TYPES], [])
                 folder_images = [os.path.join(root_dir, folder, x) for x in folder_images]
                 class_images.extend(folder_images)
                 
