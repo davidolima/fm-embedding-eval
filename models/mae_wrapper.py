@@ -13,23 +13,22 @@ class MAE(nn.Module):
     """
     Embedding extractor for the Masked Autoencoder model.
     """
+    name = "MAE"
     def __init__(self, model_size: Literal['base','large','huge'] = 'base', device: Literal['cpu', 'cuda'] = 'cuda', **kwargs):
         super().__init__()
-        self.name = "MAE"
+
+        self.name = f"{MAE.name}_{model_size}"
 
         # Load model with specified configs
         model_size = model_size.lower()
         if model_size == 'base':
             self.model = mae_vit_base_patch16()
-            self.name += "_base"
             self.feat_dim = 768
         elif model_size == 'large':
             self.model = mae_vit_large_patch16()
-            self.name += "_large"
             self.feat_dim = 1024
         elif model_size == 'huge':
             self.model = mae_vit_huge_patch14()
-            self.name += "_huge"
             self.feat_dim = 1280
         else:
             raise ValueError(f"Specified MAE model size does not exist: `{model_size}`. Available options are `base`, `large` and `huge`.")
