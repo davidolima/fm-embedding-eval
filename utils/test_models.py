@@ -2,17 +2,10 @@ import torch
 
 from huggingface_hub import login
 
+from utils.download_models import MODELS
 from models import UNI, UNI2, Phikon, PhikonV2, MAE
 
 test_input = torch.rand((1,3,224,224))
-
-MODELS = (
-    UNI,
-    UNI2,
-    Phikon,
-    PhikonV2,
-    MAE,
-)
 
 def test_wrapper(model):
     print(f"----- {model.name} -----")

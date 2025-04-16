@@ -1,13 +1,14 @@
 import os
 from dotenv import load_dotenv
 from huggingface_hub import login
-from models import UNI, UNI2, Phikon, PhikonV2 
+from models import UNI, UNI2, Phikon, PhikonV2, MAE
 
 MODELS = [
     UNI,
     UNI2,
     Phikon,
     PhikonV2,
+    MAE,
 ]
 
 def authenticate_hf():
