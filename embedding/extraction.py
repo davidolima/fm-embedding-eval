@@ -35,30 +35,46 @@ def single_model_extraction(
         )
     else:
         model = model(device=device)
-    extracted_feats = np.zeros((0, model.feat_dim))
+
+    embedding_fpath = os.path.join(output_path, model.name+'.npy')
+    extracted_feats = np.memmap(embedding_fpath, dtype='float64', mode='w+', shape=(len(dataset), model.feat_dim))
     labels = []
     fnames = []
 
+    batch_start = 0
     start_time = perf_counter()
     for idx, (x, y, path) in enumerate(tqdm(dataloader, desc=model.name)):
+        break
         x = x.to(device)
-        batch_features = model(x).squeeze().detach().cpu().numpy()
-        print(batch_features.shape)
-        extracted_feats = np.vstack((extracted_feats, batch_features))
+        batch_end = batch_start + batch_size
+
+        batch_features = model(x)
+        if mae_repr_method == 'full':
+            batch_features = batch_features.flatten(1)
+        else:
+            batch_features = batch_features.squeeze()
+
+        batch_features = batch_features.detach().cpu().numpy()
+        extracted_feats[batch_start:batch_end] = batch_features
+        extracted_feats.flush()
+
         labels.extend(y)
         fnames.extend(path)
-    end_time = perf_counter()
 
+        batch_start = batch_end
+
+    end_time = perf_counter()
     dt = end_time - start_time
     if verbose:
         print(f"[!] Extraction using {model.name} finished in {dt:.2f} seconds.")
 
+    extracted_feats.flush()
     save_embedding_to_file(
-        fpath = os.path.join(output_path, model.name),
-        model = model.name,
+        fpath = os.path.join(output_path, model.name + "_info.npy"),
+        model = f"{model.name} {mae_model_size} {mae_repr_method}",
         fnames = fnames,
         labels = labels,
-        embeddings = extracted_feats,
+        embeddings = os.path.join(output_path, model.name+'.npy'),
         classes = dataset.classes,
     )
 

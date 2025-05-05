@@ -45,8 +45,11 @@ class MAE(nn.Module):
         if repr_method not in ('full', 'cls_token_only', 'mean', 'mean+cls'):
             raise ValueError(f"MAE Embedding representation method not recognized: `{repr_method}`")
         self.repr_method = repr_method
+
         if self.repr_method == 'mean+cls':
             self.feat_dim *= 2
+        elif self.repr_method == 'full':
+            self.feat_dim *= self.model.patch_embed.num_patches-1
 
         # MAE Transforms based on eval transforms found in
         # https://github.com/facebookresearch/mae/blob/main/util/datasets.py#L51
