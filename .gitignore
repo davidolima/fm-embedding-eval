@@ -1,1 +1,13 @@
 __pycache__
+bin
+utils
+share
+lib
+lib64
+include
+
+extracted-embeddings
+mae-embeddings
+*.pt
+*.pth
+*tfevents*
