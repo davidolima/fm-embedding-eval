@@ -8,7 +8,7 @@ import torch
 import torchvision.transforms as T
 from torch.utils.data import Dataset, DataLoader
 
-from models import MODELS
+from models import MODELS, MAE
 from embedding.utils import save_embedding_to_file
 from data.glomerulus import GlomerulusDataset 
 from utils.download_models import download_models, authenticate_hf
@@ -159,8 +159,14 @@ if __name__ == '__main__':
 
     dataset = GlomerulusDataset(root_dir=args.input_dir, classes=args.classes, transforms=transforms) 
     
-    models_to_eval = [model for model in MODELS if model not in models_to_skip]
-            
+    models_to_eval = []
+    for model in MODELS:
+        model_name = model.lower() if isinstance(model, str) else model.__name__.lower()
+        
+        if model_name in models_to_skip:
+            continue
+
+        models_to_eval.append(model)    
     multiple_model_extraction(
         models=models_to_eval,
         dataset=dataset,
