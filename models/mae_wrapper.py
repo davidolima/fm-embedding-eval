@@ -9,15 +9,17 @@ from typing import *
 
 from models.mae.models_mae import mae_vit_base_patch16, mae_vit_large_patch16, mae_vit_huge_patch14
 
+MAE_SIZES = ('base', 'large', 'huge')
+MAE_REPR_METHODS = ('full', 'cls_token_only', 'mean', 'mean+cls')
+
 class MAE(nn.Module):
     """
     Embedding extractor for the Masked Autoencoder model.
     """
     def __init__(
         self,
-        checkpoint_path: str = "./checkpoints/MAE/base.pth",
-        model_size: Literal['base','large','huge'] = 'base', 
-        repr_method: Literal['full', 'cls_token_only', 'mean', 'mean+cls'] = 'mean',
+        model_size: Literal[*MAE_SIZES] = 'base', 
+        repr_method: Literal[*MAE_REPR_METHODS] = 'mean',
         device: Literal['cpu', 'cuda'] = 'cuda',
         **kwargs
     ):
@@ -38,7 +40,6 @@ class MAE(nn.Module):
         else:
             raise ValueError(f"Specified MAE model size does not exist: `{model_size}`. Available options are `base`, `large` and `huge`.")
 
-        self.model.load_state_dict(torch.load(checkpoint_path, weights_only=False)['model'], strict=False)
         self.model.to(device)
         self.model.eval()
 
@@ -67,6 +68,17 @@ class MAE(nn.Module):
 
     def get_feat_dim(self):
         return self.feat_dim
+
+    def __repr__(self):
+        return self.get_name()
+
+    def __str__(self):
+        return self.get_name()
+
+    def load_checkpoint(self, checkpoint_path: str = None):
+        if checkpoint_path is None:
+            checkpoint_path = "./models/checkpoints/mae-{self.model_size}/checkpoint-90.pth"
+        self.model.load_state_dict(torch.load(checkpoint_path, weights_only=False)['model'], strict=False)
 
     def forward(self, x: torch.Tensor):
         with torch.inference_mode():

@@ -20,19 +20,25 @@ def single_model_extraction(
     mae_model_size: str, mae_repr_method: str,
     output_path: str,
     verbose: bool = True,
-    model_checkpoint: Optional[str] = None,
     device: Literal['cpu', 'cuda'] = 'cuda',
 ):
     os.makedirs(output_path, exist_ok=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     
-    if model.__name__.lower().startswith('mae'):
-        model = model(
-            checkpoint_path=model_checkpoint,
-            model_size=mae_model_size,
-            repr_method=mae_repr_method,
-            device=device
-        )
+    if isinstance(model, str):
+        if model.lower().startswith('mae'):
+            if mae_model_size != 'all' and mae_model_size not in model:
+                print(f"[!] Skipping model `{model}`.")
+                return
+            if mae_repr_method != 'all' and mae_repr_method not in model:
+                print(f"[!] Skipping model `{model}`.")
+                return
+
+            _, model_size, model_repr_method, = model.split('_')
+            model = MAE(model_size=model_size, repr_method=model_repr_method, device=device)
+            model.load_checkpoint()
+        else:
+            raise ValueError(f"Model `{model}` not recognized. Available options are: {', '.join([str(x) for x in MODELS])}.")
     else:
         model = model(device=device)
 
@@ -87,10 +93,10 @@ def multiple_model_extraction(
     pre_download_models: bool = True,
     device: Literal['cpu', 'cuda'] = 'cuda',
 ):
-    print("[*] Evaluating the following models:", [model.__name__ for model in models])
+    print("[*] Evaluating the following models:", list(map(str, models)))
 
     if pre_download_models:
-        download_models(models=models)
+        download_models()
 
     os.makedirs(output_path, exist_ok=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
@@ -98,8 +104,8 @@ def multiple_model_extraction(
     start_time = perf_counter()
     print(f"[!] Starting evaluation. Outputting to `{output_path}`.")
     for model in models:
-        print(f"    > Evaluating {model.__name__}.")
-        model_output_path = os.path.join(output_path, model.__name__)
+        print(f"    > Evaluating {str(model)}.")
+        model_output_path = os.path.join(output_path, str(model))
         os.makedirs(model_output_path, exist_ok=True)
         
         single_model_extraction(
@@ -109,7 +115,6 @@ def multiple_model_extraction(
             output_path = model_output_path,
             verbose = True,
             device = device,
-            model_checkpoint=None if model.__name__ != 'MAE' else checkpoints, #FIXME
             mae_model_size=mae_model_size,
             mae_repr_method=mae_repr_method,
         )
@@ -129,10 +134,11 @@ if __name__ == '__main__':
         parser.add_argument("-b", "--batch-size", type=int, default=64)
         parser.add_argument("-d", "--device",     type=str, default="cuda")
         parser.add_argument("-s", "--skip-model", action="extend", nargs='+', default=[])
+        parser.add_argument("--classes",    action="extend", nargs='+', default=[])
         parser.add_argument("--image-size", type=int, default=224)
         parser.add_argument("--mae-checkpoint", type=str, default="./models/checkpoints/MAE/base.pth", help="checkpoint path for MAE.")
-        parser.add_argument("--mae-size", type=str, default="base", help="MAE model size: base, large or huge")
-        parser.add_argument("--mae-repr-method", type=str, default="mean", help="Strategy for representing MAE patch-wise embeddings as a single embedding vector. Available options: full, mean, mean+cls or cls_tokens_only")
+        parser.add_argument("--mae-size", type=str, default="all", help="MAE model size: all, base, large or huge")
+        parser.add_argument("--mae-repr-method", type=str, default="all", help="Strategy for representing MAE patch-wise embeddings as a single embedding vector. Available options: all, full, mean, mean+cls or cls_tokens_only")
         parser.add_argument("--download-on-demand", action="store_true", help="Downloads models on demand. By default, downloads all models before the extraction begins.")
         return parser.parse_args()
 
@@ -144,12 +150,19 @@ if __name__ == '__main__':
     transforms = T.Compose([
         T.ToTensor(),
         T.Resize((args.image_size, args.image_size)),
+        T.Lambda(lambda x: x[:3, :, :] if x.shape[0] == 4 else x),  # Handle RGBA by keeping only RGB channels
+        T.Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x),  # Convert grayscale to RGB
     ])
     
-    dataset = GlomerulusDataset(root_dir=args.input_dir, transforms=transforms) 
+    if 'terumo' in args.classes:
+        args.classes = ['Crescent', 'Sclerosis', 'Normal', 'Podocitopatia', 'Hypercelularidade', 'Membranous']
+
+    dataset = GlomerulusDataset(root_dir=args.input_dir, classes=args.classes, transforms=transforms) 
     
+    models_to_eval = [model for model in MODELS if model not in models_to_skip]
+            
     multiple_model_extraction(
-        models=[model for model in MODELS if model.__name__.lower() not in models_to_skip],
+        models=models_to_eval,
         dataset=dataset,
         batch_size=args.batch_size,
         output_path=args.output_dir,

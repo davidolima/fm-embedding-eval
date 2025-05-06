@@ -16,7 +16,10 @@ def authenticate_hf():
             print("[ERROR] Error during authentication:", e)
     return authenticated
 
-def download_models(models):
+def download_models(models: list[callable] = None):
+    if models is None:
+        models = HF_MODELS
+        
     for model in models:
         if model in HF_MODELS: # only authenticate if there are hugging face models in list
             if not authenticate_hf():

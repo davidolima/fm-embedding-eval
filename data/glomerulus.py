@@ -30,7 +30,7 @@ class GlomerulusDataset(Dataset):
         self.root = root_dir
         self.transforms = transforms
 
-        if classes:
+        if classes and classes != []:
             self.classes = classes
         else:
             # Folders found in root_dir will be used as classes

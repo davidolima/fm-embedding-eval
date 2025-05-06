@@ -49,6 +49,12 @@ class UNI2(nn.Module):
             )
         )
 
+    def __repr__(self):
+        return self.get_name()
+
+    def __str__(self):
+        return self.get_name()
+
     def get_name(self):
         return self.name
 

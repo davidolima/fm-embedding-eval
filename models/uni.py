@@ -36,6 +36,12 @@ class UNI(nn.Module):
     def get_feat_dim(self):
         return self.get_feat_dim
 
+    def __repr__(self):
+        return self.get_name()
+
+    def __str__(self):
+        return self.get_name()
+
     @staticmethod
     def download_model():
         return timm.create_model(
