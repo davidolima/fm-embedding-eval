@@ -44,7 +44,6 @@ def single_model_extraction(
     batch_start = 0
     start_time = perf_counter()
     for idx, (x, y, path) in enumerate(tqdm(dataloader, desc=model.name)):
-        break
         x = x.to(device)
         batch_end = batch_start + batch_size
 
