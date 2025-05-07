@@ -12,7 +12,7 @@ HF_MODELS = [
 ]
 
 MAE_MODELS = [
-    f"mae_{size}_{method}"
+    f"mae-{size}-{method}"
     for size in MAE_SIZES
     for method in MAE_REPR_METHODS
 ]

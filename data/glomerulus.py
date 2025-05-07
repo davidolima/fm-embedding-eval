@@ -83,9 +83,6 @@ class GlomerulusDataset(Dataset):
             class_images = [(x, classes.index(c)) for x in images]
             data.extend(class_images)
 
-            if c == 'Hypercelularidade':
-                print(images)
-
         print(f"[!] Dataset loaded. ({len(data)} images and {len(classes)} classes)")
         return data
 

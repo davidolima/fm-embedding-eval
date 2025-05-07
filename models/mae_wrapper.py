@@ -24,7 +24,9 @@ class MAE(nn.Module):
         **kwargs
     ):
         super().__init__()
-        self.name = f"MAE_{model_size}_{repr_method}"
+        self.name = f"MAE-{model_size}-{repr_method}"
+        self.model_size = model_size
+        self.repr_method = repr_method
         
         # Load model with specified configs
         model_size = model_size.lower()
@@ -77,7 +79,7 @@ class MAE(nn.Module):
 
     def load_checkpoint(self, checkpoint_path: str = None):
         if checkpoint_path is None:
-            checkpoint_path = "./models/checkpoints/mae-{self.model_size}/checkpoint-90.pth"
+            checkpoint_path = f"./models/checkpoints/mae-{self.model_size}/checkpoint-90.pth"
         self.model.load_state_dict(torch.load(checkpoint_path, weights_only=False)['model'], strict=False)
 
     def forward(self, x: torch.Tensor):

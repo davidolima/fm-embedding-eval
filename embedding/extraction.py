@@ -25,6 +25,7 @@ def single_model_extraction(
     os.makedirs(output_path, exist_ok=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     
+    model_size, model_repr_method = None, None
     if isinstance(model, str):
         if model.lower().startswith('mae'):
             if mae_model_size != 'all' and mae_model_size not in model:
@@ -34,7 +35,7 @@ def single_model_extraction(
                 print(f"[!] Skipping model `{model}`.")
                 return
 
-            _, model_size, model_repr_method, = model.split('_')
+            _, model_size, model_repr_method, = model.split('-')
             model = MAE(model_size=model_size, repr_method=model_repr_method, device=device)
             model.load_checkpoint()
         else:
@@ -54,7 +55,7 @@ def single_model_extraction(
         batch_end = batch_start + batch_size
 
         batch_features = model(x)
-        if mae_repr_method == 'full':
+        if model_repr_method == 'full':
             batch_features = batch_features.flatten(1)
         else:
             batch_features = batch_features.squeeze()
@@ -76,7 +77,7 @@ def single_model_extraction(
     extracted_feats.flush()
     save_embedding_to_file(
         fpath = os.path.join(output_path, model.name + "_info.npy"),
-        model = f"{model.name} {mae_model_size} {mae_repr_method}",
+        model = model.name,
         fnames = fnames,
         labels = labels,
         embeddings = os.path.join(output_path, model.name+'.npy'),
@@ -93,7 +94,7 @@ def multiple_model_extraction(
     pre_download_models: bool = True,
     device: Literal['cpu', 'cuda'] = 'cuda',
 ):
-    print("[*] Evaluating the following models:", list(map(str, models)))
+    print("[*] Evaluating the following models:", models)
 
     if pre_download_models:
         download_models()
@@ -104,8 +105,9 @@ def multiple_model_extraction(
     start_time = perf_counter()
     print(f"[!] Starting evaluation. Outputting to `{output_path}`.")
     for model in models:
-        print(f"    > Evaluating {str(model)}.")
-        model_output_path = os.path.join(output_path, str(model))
+        model_name = model if isinstance(model, str) else model.__name__
+        print(f"    > Evaluating {model_name}.")
+        model_output_path = os.path.join(output_path, model_name)
         os.makedirs(model_output_path, exist_ok=True)
         
         single_model_extraction(
@@ -162,11 +164,12 @@ if __name__ == '__main__':
     models_to_eval = []
     for model in MODELS:
         model_name = model.lower() if isinstance(model, str) else model.__name__.lower()
-        
-        if model_name in models_to_skip:
+
+        if any([x in model_name for x in models_to_skip]):
             continue
 
-        models_to_eval.append(model)    
+        models_to_eval.append(model)
+
     multiple_model_extraction(
         models=models_to_eval,
         dataset=dataset,
