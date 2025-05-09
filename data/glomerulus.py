@@ -20,10 +20,10 @@ class GlomerulusDataset(Dataset):
     ):
         """
         Class for Terumo's Glomerulus dataset.
-        params:
-         - root_dir: Dataset system path.
-         - classes (Default: None): List of classes to search for in `root_dir`.
-                                    If None, will infer based on folders found in `root_dir`.
+        Args:
+            root_dir (str): Path to the root directory containing the dataset.
+            transforms (transforms.Compose | None): Transformations to apply to the images.
+            classes (list[str] | None): List of classes to use. If None, classes will be auto-detected based on folders found in `root_dir`.
         """
         super().__init__()
 
@@ -42,7 +42,7 @@ class GlomerulusDataset(Dataset):
     @staticmethod
     def get_image_from_folders(folder_path:str) -> list[str]:
         """
-        Get all images from a folder.
+        Get all images from inside a folder.
         """
         if os.path.isfile(folder_path) or os.listdir(folder_path) == []:
             return []
@@ -123,7 +123,7 @@ class GlomerulusDataset(Dataset):
         return (img, label, img_path)
 
 if __name__ == '__main__':
-    ds = GlomerulusDataset("/datasets/terumo-val")
+    ds = GlomerulusDataset("/datasets/terumo-data-jpeg")
     print(ds)
 
     image, label, path = ds[0]

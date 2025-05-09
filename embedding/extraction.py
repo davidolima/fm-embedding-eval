@@ -1,27 +1,44 @@
 import os
+import logging
+from typing import *
 from time import perf_counter
+
 import numpy as np
 from tqdm import tqdm
-from typing import *
 
 import torch
 import torchvision.transforms as T
 from torch.utils.data import Dataset, DataLoader
 
-from models import MODELS, MAE
+from models import MODELS, MAE, MAE_SIZES, MAE_REPR_METHODS
 from embedding.utils import save_embedding_to_file
 from data.glomerulus import GlomerulusDataset 
 from utils.download_models import download_models, authenticate_hf
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def single_model_extraction(
     model: torch.nn.Module,
     dataset: Dataset,
     batch_size: int,
-    mae_model_size: str, mae_repr_method: str,
+    mae_model_size: Literal[*MAE_SIZES],
+    mae_repr_method: Literal[*MAE_REPR_METHODS],
     output_path: str,
-    verbose: bool = True,
     device: Literal['cpu', 'cuda'] = 'cuda',
-):
+) -> None:
+    """
+    Extract embeddings for a single model.
+
+    Args:
+        model (torch.nn.Module): The model to use for extraction.
+        dataset (Dataset): The dataset to process.
+        batch_size (int): Batch size for the DataLoader.
+        mae_model_size (str): Size of the MAE model ("base", "large" or "huge").
+        mae_repr_method (str): Representation method for MAE embeddings.
+        output_path (str): Directory to save the embeddings.
+        device (str): Device to use ("cpu" or "cuda").
+    """
     os.makedirs(output_path, exist_ok=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     
@@ -29,10 +46,10 @@ def single_model_extraction(
     if isinstance(model, str):
         if model.lower().startswith('mae'):
             if mae_model_size != 'all' and mae_model_size not in model:
-                print(f"[!] Skipping model `{model}`.")
+                logger.info(f"Skipping model `{model}`.")
                 return
             if mae_repr_method != 'all' and mae_repr_method not in model:
-                print(f"[!] Skipping model `{model}`.")
+                logger.info(f"Skipping model `{model}`.")
                 return
 
             _, model_size, model_repr_method, = model.split('-')
@@ -71,8 +88,7 @@ def single_model_extraction(
 
     end_time = perf_counter()
     dt = end_time - start_time
-    if verbose:
-        print(f"[!] Extraction using {model.name} finished in {dt:.2f} seconds.")
+    logger.info(f"Extraction using {model.name} finished in {dt:.2f} seconds.")
 
     extracted_feats.flush()
     save_embedding_to_file(
@@ -93,8 +109,23 @@ def multiple_model_extraction(
     checkpoints: Optional[str] = None,
     pre_download_models: bool = True,
     device: Literal['cpu', 'cuda'] = 'cuda',
-):
-    print("[*] Evaluating the following models:", models)
+) -> None:
+    """
+    Extract embeddings for multiple models.
+
+    Args:
+        models (list[torch.nn.Module]): List of models to use for extraction.
+        dataset (Dataset): The dataset to process.
+        batch_size (int): Batch size for the DataLoader.
+        output_path (str): Directory to save the embeddings.
+        mae_model_size (str): Size of the MAE model ("base", "large" or "huge").
+        mae_repr_method (str): Representation method for MAE embeddings.
+        checkpoints (str, optional): Path to the checkpoint file for MAE models. Defaults to None.
+        pre_download_models (bool): Whether to download models before extraction. Defaults to True.
+        device (str): Device to use ("cpu" or "cuda"). Defaults to "cuda".
+    """
+
+    logger.info("Evaluating the following models:", models)
 
     if pre_download_models:
         download_models()
@@ -103,10 +134,10 @@ def multiple_model_extraction(
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     
     start_time = perf_counter()
-    print(f"[!] Starting evaluation. Outputting to `{output_path}`.")
+    logger.info(f"Starting evaluation. Outputting to `{output_path}`.")
     for model in models:
         model_name = model if isinstance(model, str) else model.__name__
-        print(f"    > Evaluating {model_name}.")
+        logger.info(f"Evaluating {model_name}.")
         model_output_path = os.path.join(output_path, model_name)
         os.makedirs(model_output_path, exist_ok=True)
         
@@ -115,7 +146,6 @@ def multiple_model_extraction(
             dataset = dataset,
             batch_size = batch_size,
             output_path = model_output_path,
-            verbose = True,
             device = device,
             mae_model_size=mae_model_size,
             mae_repr_method=mae_repr_method,
@@ -123,7 +153,7 @@ def multiple_model_extraction(
 
     end_time = perf_counter()
     dt = end_time - start_time
-    print(f"[!] Extraction finished in {dt:.2f} seconds.")
+    logger.info(f"Extraction finished in {dt:.2f} seconds.")
 
     return
 
