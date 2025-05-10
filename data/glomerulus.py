@@ -2,14 +2,16 @@ import torch
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
-from PIL import Image
 import numpy as np
+from PIL import Image
+from tqdm import tqdm
 
 import os
 import glob
 from typing import *
 
 from config import Config
+from data.augment import get_train_transforms, apply_to_images
 
 class GlomerulusDataset(Dataset):
     def __init__(
@@ -17,6 +19,7 @@ class GlomerulusDataset(Dataset):
         root_dir: str,
         transforms: transforms.Compose | None = None,
         classes: list[str] | None = None,
+        balance_dataset: bool = False,
     ):
         """
         Class for Terumo's Glomerulus dataset.
@@ -38,6 +41,9 @@ class GlomerulusDataset(Dataset):
             print(f"[!] Classes auto-detected: {self.classes}")
 
         self.data = GlomerulusDataset.load_data(self.root, self.classes)
+
+        if balance_dataset:
+            self.balance_classes()
 
     @staticmethod
     def get_image_from_folders(folder_path:str) -> list[str]:
@@ -106,6 +112,40 @@ class GlomerulusDataset(Dataset):
             count[self.classes[label]] += 1
         return count
 
+    def balance_classes(self) -> None:
+        """
+        Balance the classes in the dataset.
+        """
+        count = self.count_images_per_class()
+        max_count = max(count.values())
+
+        transforms = get_train_transforms()
+
+        for c, n in tqdm(count.items()):
+            if n < max_count:
+                # Get the difference
+                diff = max_count - n
+
+                # Get random images from the class
+                class_images = [x for x, label in self.data if label == self.classes.index(c)]
+                random_images = np.random.choice(class_images, diff, replace=True)
+                
+                # Apply augmentations to the images
+                random_images = apply_to_images(
+                    image_paths=random_images,
+                    transforms=transforms,
+                    save_dir=os.path.join(self.root, c, "augmented"),
+                    shuffle=True,
+                    limit=diff
+                )        
+
+                # Add them to the dataset
+                self.data.extend([(x, self.classes.index(c)) for x in random_images])
+
+            print(f"[!] Class {c} balanced. ({n} -> {max_count})")
+
+        print(f"[!] Classes balanced. ({len(self.data)} images and {len(self.classes)} classes)")
+        self.info()
 
     def __repr__(self) -> str:
         return f"<GlomerulusDataset with {self.__len__()} images and {len(self.classes)} classes>"
@@ -123,11 +163,12 @@ class GlomerulusDataset(Dataset):
         return (img, label, img_path)
 
 if __name__ == '__main__':
-    ds = GlomerulusDataset("/datasets/terumo-data-jpeg")
+    classes = ["Crescent", "Hypercelularidade", "Membranous", "Normal", "Podocitopatia", "Sclerosis"]
+    ds = GlomerulusDataset("/datasets/terumo-data-jpeg", classes=classes)
     print(ds)
 
     image, label, path = ds[0]
 
     ds.info()
-    #print(image)
-    #print(label)
+    ds.balance_classes()
+    ds.info()
