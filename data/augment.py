@@ -1,5 +1,6 @@
 import os
 import random
+from multiprocessing import Pool
 
 import torch 
 from torchvision.utils import save_image
@@ -81,11 +82,20 @@ def apply_to_one_image(image_path: str, transforms: A.Compose, save_path: str) -
     augmented_image = transforms(image=image)    
     augmented_image = augmented_image['image']
 
+    # Prevent duplicates
+    if os.path.basename(save_path) in os.listdir(os.path.dirname(save_path)):
+        i = 1
+        new_name = os.path.basename(save_path).split(".")[0] + f"_{i}." + os.path.basename(save_path).split(".")[-1]
+        while new_name in os.listdir(os.path.dirname(save_path)):
+            i += 1
+            new_name = os.path.basename(save_path).split(".")[0] + f"_{i}." + os.path.basename(save_path).split(".")[-1]
+        save_path = os.path.join(os.path.dirname(save_path), new_name)
+
     save_image(augmented_image.float() / 255.0, save_path)  # Normalize to [0, 1]
 
     return save_path
 
-def apply_to_images(image_paths: list[str], transforms: A.Compose, save_dir: str, shuffle: bool = False, limit: int = -1) -> list[str]:
+def apply_to_images(image_paths: list[str], transforms: A.Compose, save_dir: str, shuffle: bool = False, limit: int = -1, n_workers: int = 4) -> list[str]:
     """
     Apply transforms to a list of images and save the results.
     """
@@ -102,13 +112,22 @@ def apply_to_images(image_paths: list[str], transforms: A.Compose, save_dir: str
     if limit > 0:
         images = images[:limit]
 
-    generated_images = []
-    for image_path in tqdm(images):
-        filename = os.path.basename(image_path)
-        save_path = os.path.join(save_dir, filename)
 
-        saved_image_path = apply_to_one_image(image_path, transforms, save_path)
-        generated_images.append(saved_image_path)
+    generated_images = []
+    for i in range(0, len(images), n_workers):
+        batch = images[i:i + n_workers]
+        with Pool(processes=n_workers) as pool:
+            generated_batch = pool.starmap(apply_to_one_image, [(os.path.join(image_path), transforms, os.path.join(save_dir, os.path.basename(image_path))) for image_path in batch])
+        
+        generated_images.extend(generated_batch)
+
+    # generated_images = []
+    # for image_path in tqdm(images):
+    #     filename = os.path.basename(image_path)
+    #     save_path = os.path.join(save_dir, filename)
+
+    #     saved_image_path = apply_to_one_image(image_path, transforms, save_path)
+    #     generated_images.append(saved_image_path)
 
     return generated_images
 

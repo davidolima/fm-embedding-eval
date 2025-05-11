@@ -119,13 +119,15 @@ class GlomerulusDataset(Dataset):
         count = self.count_images_per_class()
         max_count = max(count.values())
 
+        print(f"[!] Balancing each class to {max_count} images.")
+
         transforms = get_train_transforms()
 
         for c, n in tqdm(count.items()):
             if n < max_count:
                 # Get the difference
                 diff = max_count - n
-
+                
                 # Get random images from the class
                 class_images = [x for x, label in self.data if label == self.classes.index(c)]
                 random_images = np.random.choice(class_images, diff, replace=True)
@@ -134,15 +136,16 @@ class GlomerulusDataset(Dataset):
                 random_images = apply_to_images(
                     image_paths=random_images,
                     transforms=transforms,
-                    save_dir=os.path.join(self.root, c, "augmented"),
+                    save_dir=os.path.join(self.root, f"{c}_augmented"),
                     shuffle=True,
                     limit=diff
                 )        
 
                 # Add them to the dataset
                 self.data.extend([(x, self.classes.index(c)) for x in random_images])
-
-            print(f"[!] Class {c} balanced. ({n} -> {max_count})")
+                print(f"[!] Class {c} balanced. ({n} + {len(random_images)} -> {max_count})")
+            else:
+                print(f"[!] Class {c} already balanced. ({n} images)")
 
         print(f"[!] Classes balanced. ({len(self.data)} images and {len(self.classes)} classes)")
         self.info()
