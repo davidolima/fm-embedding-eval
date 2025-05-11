@@ -13,7 +13,7 @@ import albumentations as A
 from config import Config
 import cv2
 
-def get_train_transforms():
+def get_train_transforms(seed: int = 42):
     albumentations_t = A.Compose([
         A.HorizontalFlip(Config.P_HORIZONTAL_FLIP),
         A.VerticalFlip(Config.P_VERTICAL_FLIP),
@@ -62,7 +62,7 @@ def get_train_transforms():
             p=Config.P_SHIFT
         ),
         A.pytorch.ToTensorV2(),
-    ])
+    ], seed=seed)
     return albumentations_t
 
 
@@ -112,12 +112,11 @@ def apply_to_images(image_paths: list[str], transforms: A.Compose, save_dir: str
     if limit > 0:
         images = images[:limit]
 
-
     generated_images = []
     for i in range(0, len(images), n_workers):
         batch = images[i:i + n_workers]
         with Pool(processes=n_workers) as pool:
-            generated_batch = pool.starmap(apply_to_one_image, [(os.path.join(image_path), transforms, os.path.join(save_dir, os.path.basename(image_path))) for image_path in batch])
+            generated_batch = pool.starmap(apply_to_one_image, [(os.path.join(image_path), get_train_transforms(seed=seed), os.path.join(save_dir, os.path.basename(image_path))) for seed, image_path in enumerate(batch)])
         
         generated_images.extend(generated_batch)
 

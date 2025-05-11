@@ -138,7 +138,8 @@ class GlomerulusDataset(Dataset):
                     transforms=transforms,
                     save_dir=os.path.join(self.root, f"{c}_augmented"),
                     shuffle=True,
-                    limit=diff
+                    limit=diff,
+                    n_workers=16,
                 )        
 
                 # Add them to the dataset
