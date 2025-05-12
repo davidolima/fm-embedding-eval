@@ -7,6 +7,7 @@ from PIL import Image
 from tqdm import tqdm
 
 import os
+import json
 import glob
 from typing import *
 
@@ -151,6 +152,67 @@ class GlomerulusDataset(Dataset):
         print(f"[!] Classes balanced. ({len(self.data)} images and {len(self.classes)} classes)")
         self.info()
 
+    def generate_cross_validation_splits(self, n_splits: int = 5, out_dir: str = None) -> list[list[str]]:
+        """
+        Generate cross-validation splits for the dataset.
+        Args:
+            n_splits (int): Number of splits to generate.
+        """
+
+        n_images = len(self.data)
+        n_images_per_split = n_images // n_splits
+        
+        # Shuffle and separate image indices into splits
+        indices = np.arange(n_images)
+        np.random.shuffle(indices)
+
+        splits = []
+        for i in range(n_splits):
+            start = i*n_images_per_split
+            end = (i+1)*n_images_per_split if i != n_splits-1 else n_images
+            splits.append(indices[start:end])
+        assert(sum(len(split) for split in splits) == n_images), "Error: Not all images are included in the splits."
+
+        # Transform indices in file paths
+        for idx, split in enumerate(splits):
+            splits[idx] = [self.data[i] for i in split]
+
+        print(f"[!] Generated {n_splits} cross-validation splits of size {n_images_per_split}.")
+        for i, split in enumerate(splits):
+            print(f"  - Split {i+1}: {len(split)} images")
+
+        if out_dir: # Create splits in `out_dir` using symlinks
+            print(f"[!] Saving splits to `{out_dir}`.")
+            os.makedirs(out_dir, exist_ok=True)
+
+            splits_info = {self.classes[c]: [] for c in range(len(self.classes))}
+
+            for split_idx, split_images in enumerate(splits):
+                split_dir = os.path.join(out_dir, f"split_{split_idx+1}")
+                os.makedirs(split_dir, exist_ok=True)
+                
+                # Create symlink to images in splits
+                for image_path, label in split_images:
+                    label_dir = os.path.join(split_dir, str(self.classes[label]))
+                    os.makedirs(label_dir, exist_ok=True)
+
+                    splits_info[ self.classes[label] ].append(image_path)
+
+                    image_name = os.path.basename(image_path)                    
+                    # HACK: Augmented images should have a different name than the original file
+                    if 'augmented' in image_path:
+                        fname, ext = image_name.split('.') # Consider images that include '.' ?
+                        image_name = f"{fname}_augmented.{ext}"
+
+                    os.symlink(image_path, os.path.join(label_dir, image_name))
+
+                #print(f"[!] Created {len(split_images)} symbolic links for split {split_idx+1} in `{split_dir}`.")
+
+            with open(os.path.join(out_dir, 'splits_info.json'), 'w+') as f:
+                f.write(json.dumps(splits_info))
+
+        return splits
+
     def __repr__(self) -> str:
         return f"<GlomerulusDataset with {self.__len__()} images and {len(self.classes)} classes>"
 
@@ -168,11 +230,12 @@ class GlomerulusDataset(Dataset):
 
 if __name__ == '__main__':
     classes = ["Crescent", "Hypercelularidade", "Membranous", "Normal", "Podocitopatia", "Sclerosis"]
-    ds = GlomerulusDataset("/datasets/terumo-data-jpeg", classes=classes)
+    ds = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
     print(ds)
 
     image, label, path = ds[0]
 
     ds.info()
-    ds.balance_classes()
-    ds.info()
+    splits_folder = "/datasets/terumo-splits-augmented/"
+    for qty_splits in list(range(5,11)):
+        ds.generate_cross_validation_splits(qty_splits, out_dir=os.path.join(splits_folder,f'{qty_splits}_splits'))

@@ -6,7 +6,7 @@ lib
 lib64
 include
 
-extracted-embeddings
+extracted-embeddings*
 mae-embeddings
 *.pt
 *.pth
