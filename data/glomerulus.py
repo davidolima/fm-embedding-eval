@@ -152,6 +152,33 @@ class GlomerulusDataset(Dataset):
         print(f"[!] Classes balanced. ({len(self.data)} images and {len(self.classes)} classes)")
         self.info()
 
+    def load_splits_from_json(self, split_no: int | list[int], json_path: str, clear_data: bool = True) -> None: 
+        """
+        Load cross-validation splits from a JSON file.
+        Args:
+            json_path (str): Path to the JSON file produced by `generate_cross_validation_splits` containing the splits.
+        """
+
+        with open(json_path, 'r') as f:
+            splits = json.load(f)
+                 
+        if isinstance(split_no, int):
+            split_no = [split_no]
+        
+        if clear_data:
+            self.data = []
+        
+        for i in split_no:
+            if f"split_{i}" not in splits:
+                raise ValueError(f"[!] Split {i} not found in `{json_path}`. Available splits: {splits.keys()}")
+
+            self.classes.extend([x for x in splits[f"split_{i}"].keys() if x != 'splits' and x not in self.classes])
+            for label, imgs in splits[f"split_{i}"].items():
+                for img in imgs:
+                    self.data.append((img, self.classes.index(label)))
+
+        #print(f"[!] Loaded {len(splits)} cross-validation splits from `{json_path}`.")
+
     def generate_cross_validation_splits(self, n_splits: int = 5, out_dir: str = None) -> list[list[str]]:
         """
         Generate cross-validation splits for the dataset.
@@ -185,18 +212,20 @@ class GlomerulusDataset(Dataset):
             print(f"[!] Saving splits to `{out_dir}`.")
             os.makedirs(out_dir, exist_ok=True)
 
-            splits_info = {self.classes[c]: [] for c in range(len(self.classes))}
+            splits_info = {} 
 
             for split_idx, split_images in enumerate(splits):
                 split_dir = os.path.join(out_dir, f"split_{split_idx+1}")
                 os.makedirs(split_dir, exist_ok=True)
                 
+                splits_info[ f"split_{split_idx+1}" ] = {self.classes[c]: [] for c in range(len(self.classes))}
+
                 # Create symlink to images in splits
                 for image_path, label in split_images:
                     label_dir = os.path.join(split_dir, str(self.classes[label]))
                     os.makedirs(label_dir, exist_ok=True)
 
-                    splits_info[ self.classes[label] ].append(image_path)
+                    splits_info[f"split_{split_idx+1}"][ self.classes[label] ].append(image_path)
 
                     image_name = os.path.basename(image_path)                    
                     # HACK: Augmented images should have a different name than the original file
@@ -230,12 +259,26 @@ class GlomerulusDataset(Dataset):
 
 if __name__ == '__main__':
     classes = ["Crescent", "Hypercelularidade", "Membranous", "Normal", "Podocitopatia", "Sclerosis"]
-    ds = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
-    print(ds)
+    train = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
+    val = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
 
-    image, label, path = ds[0]
+    train.info()
+    val.info()
+    
+    for i in range(5):
+        val_split = i+1
+        train_splits = list(range(1, 6))
+        train_splits.remove(val_split)
 
-    ds.info()
-    splits_folder = "/datasets/terumo-splits-augmented/"
-    for qty_splits in list(range(5,11)):
-        ds.generate_cross_validation_splits(qty_splits, out_dir=os.path.join(splits_folder,f'{qty_splits}_splits'))
+        val.load_splits_from_json(val_split, "/datasets/terumo-splits-augmented/10_splits/splits_info.json", clear_data=True)
+        train.load_splits_from_json(train_splits, "/datasets/terumo-splits-augmented/10_splits/splits_info.json", clear_data=True)
+
+        print("--" * 20, "Train", "--" * 20)
+        train.info()
+        print("--" * 20, "Validation", "--" * 20)
+        val.info()
+
+
+    # splits_folder = "/datasets/terumo-splits-augmented/"
+    # for qty_splits in list(range(5,11)):
+    #     ds.generate_cross_validation_splits(qty_splits, out_dir=os.path.join(splits_folder,f'{qty_splits}_splits'))
