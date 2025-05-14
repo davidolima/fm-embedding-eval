@@ -19,21 +19,31 @@ class GlomerulusDataset(Dataset):
     def __init__(
         self, 
         root_dir: str,
-        transforms: transforms.Compose | None = None,
-        classes: list[str] | None = None,
         balance_dataset: bool = False,
+        transforms: Optional[transforms.Compose] = None,
+        classes: Optional[list[str]] = None,
+        one_vs_all: Optional[str] = None,
+        consider_augmented: bool | Literal['others_only', 'positive_only'] = True,
     ):
         """
         Class for Terumo's Glomerulus dataset.
         Args:
             root_dir (str): Path to the root directory containing the dataset.
-            transforms (transforms.Compose | None): Transformations to apply to the images.
-            classes (list[str] | None): List of classes to use. If None, classes will be auto-detected based on folders found in `root_dir`.
+            balance_dataset (bool): Whether to balance the dataset or not.
+            transforms (Optional[transforms.Compose]): Transformations to apply to the images.
+            classes (Optional[list[str]]): List of classes to use. If None, classes will be auto-detected based on folders found in `root_dir`.
+            one_vs_all (Optional[str]): Class to use against all others for binary classification. If None, all classes will be used.
+            consider_augmented (bool | Literal['others_only', 'positive_only']): Whether to consider augmented images or not. 
+                Use 'False' to ignore all augmented images, 'True' to consider all augmented images,
+                'positive_only' to only consider augmented images for the positive class,
+                or 'others_only' to only consider augmented images for all classes except the `one_vs_all` class.
         """
         super().__init__()
 
         self.root = root_dir
         self.transforms = transforms
+        self.one_vs_all = one_vs_all
+        self.consider_augmented = consider_augmented
 
         if classes and classes != []:
             self.classes = classes
@@ -42,7 +52,11 @@ class GlomerulusDataset(Dataset):
             self.classes = [x for x in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, x))]
             print(f"[!] Classes auto-detected: {self.classes}")
 
-        self.data = GlomerulusDataset.load_data(self.root, self.classes)
+
+        self.data = GlomerulusDataset.load_data(self.root, self.classes, one_vs_all=self.one_vs_all, consider_augmented=consider_augmented)
+
+        if self.one_vs_all:
+            self.classes = ['others', self.one_vs_all]
 
         if balance_dataset:
             self.balance_classes()
@@ -85,11 +99,33 @@ class GlomerulusDataset(Dataset):
             yield c, class_images
         
     @staticmethod
-    def load_data(root_dir: str, classes: list[str]) -> list[Tuple[str, int]]:
+    def load_data(root_dir: str, classes: list[str], one_vs_all: Optional[str] = None, consider_augmented: bool | Literal['others_only', 'positive_only'] = True) -> list[Tuple[str, int]]:
         data = []
         for c, images in GlomerulusDataset.iterate_over_class_images(root_dir, classes):
-            class_images = [(x, classes.index(c)) for x in images]
+            consider_augmented_for_this_class = True
+
+            # Figure out if we should consider augmented images for this class
+            if isinstance(consider_augmented, str):
+                assert(one_vs_all is not None), "Parameter `one_vs_all` must be set if consider_augmented `others_only` or `positive_only` is used."
+                # If I'm not in the `one_vs_all` class and `consider_augmented` is `others_only`, I will consider augmented images
+                consider_augmented_for_this_class = (consider_augmented == 'others_only' and c != one_vs_all)
+                # If I'm in the `one_vs_all` class and `consider_augmented` is `positive_only`, I will consider augmented images
+                consider_augmented_for_this_class = (consider_augmented == 'positive_only' and c == one_vs_all) or consider_augmented_for_this_class 
+            elif isinstance(consider_augmented, bool):
+                consider_augmented_for_this_class = consider_augmented
+                    
+            if not consider_augmented_for_this_class: # Do not consider augmented images for this class
+                images = [x for x in images if 'augmented' not in x]
+
+            if one_vs_all:
+                class_images = [(x, int(c == one_vs_all)) for x in images] # Positive class is 1, negative class is 0
+            else:
+                class_images = [(x, classes.index(c)) for x in images]
+
             data.extend(class_images)
+
+        if one_vs_all:
+            classes = ['others', one_vs_all]
 
         print(f"[!] Dataset loaded. ({len(data)} images and {len(classes)} classes)")
         return data
@@ -98,25 +134,35 @@ class GlomerulusDataset(Dataset):
         """
         Print dataset info.
         """
-        print(f"Dataset: {self.__class__.__name__}")
+        print(f"Dataset: {self.__class__.__name__}", f"[{self.one_vs_all} vs All]" if self.one_vs_all else "")
         print(f"Number of images: {len(self.data)}")
-        [print(f"  - {c}: {n}") for c, n in self.count_images_per_class().items()]
+        count = self.count_images_per_class()
+        print(count.items()) #REMOVE
+        if self.one_vs_all:
+            print(f"  + Positive class ({self.one_vs_all}): {count[self.one_vs_all]}")
+            print(f"  - Negative class (Others): {count['others']}")
+        else:
+            [print(f"  - {c}: {n}") for c, n in count.items()]
         print(f"Number of classes: {len(self.classes)}")
-        print(f"Classes: {self.classes}")
         print(f"Root directory: {self.root}")
+        print("Considering augmented images:", self.consider_augmented)
 
     def count_images_per_class(self, count_augmented: bool = True) -> dict[str, int]:
         """
         Count the number of images per class.
         """
-        count = {c: 0 for c in self.classes}
-        if count_augmented:
-            for _, label in self.data:
-                count[self.classes[label]] += 1
+        if self.one_vs_all:
+            count = {self.one_vs_all: 0, 'others': 0}
         else:
-            for img_path, label in self.data:
-                if 'augmented' not in img_path:
-                    count[self.classes[label]] += 1
+            count = {c: 0 for c in self.classes}
+
+        for img_path, label in self.data:
+            if not count_augmented and 'augmented' in img_path:
+                continue
+            if self.one_vs_all:
+                label = self.one_vs_all if label == 1 else 'others' 
+
+            count[label] += 1 
         return count
 
     def _augment_class(self, class_name: str, n_images: int, save_dir: Optional[str] = None, transforms: None | A.Compose | transforms.Compose = None, n_workers: int = 4) -> None:
@@ -259,10 +305,15 @@ class GlomerulusDataset(Dataset):
             if f"split_{i}" not in splits:
                 raise ValueError(f"[!] Split {i} not found in `{json_path}`. Available splits: {splits.keys()}")
 
-            self.classes.extend([x for x in splits[f"split_{i}"].keys() if x != 'splits' and x not in self.classes])
             for label, imgs in splits[f"split_{i}"].items():
                 for img in imgs:
-                    self.data.append((img, self.classes.index(label)))
+                    if self.one_vs_all:
+                        label = 1 if label == self.one_vs_all else 0
+                    else:
+                        label = self.classes.index(label)
+                        
+                    self.data.append((img, label))
+                        
 
         #print(f"[!] Loaded {len(splits)} cross-validation splits from `{json_path}`.")
 
@@ -320,6 +371,13 @@ class GlomerulusDataset(Dataset):
                         fname, ext = image_name.split('.') # Consider images that include '.' ?
                         image_name = f"{fname}_augmented.{ext}"
 
+                    if image_name in os.listdir(label_dir):
+                        k = 1
+                        image_name = image_name.split('.')[0] + f"_{k}." + image_name.split('.')[-1]
+                        while image_name in os.listdir(label_dir):
+                            k += 1 
+                            image_name = image_name.split('.')[0] + f"_{k}." + image_name.split('.')[-1]
+
                     os.symlink(image_path, os.path.join(label_dir, image_name))
 
                 #print(f"[!] Created {len(split_images)} symbolic links for split {split_idx+1} in `{split_dir}`.")
@@ -346,20 +404,27 @@ class GlomerulusDataset(Dataset):
 
 if __name__ == '__main__':
     classes = ["Crescent", "Hypercelularidade", "Membranous", "Normal", "Podocitopatia", "Sclerosis"]
-    train = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
-    #val = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
+
+
+    splits_folder = "/datasets/terumo-splits-augmented/"
+    for cls in classes:
+        for qty_splits in list(range(5,11)):
+            train = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes, one_vs_all=cls, consider_augmented='positive_only')
+            train.generate_cross_validation_splits(qty_splits, out_dir=os.path.join(splits_folder, f'{cls}_vs_all', f'{qty_splits}_splits'))
+        
+    # val = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes, one_vs_all="Crescent", consider_augmented='positive_only')
 
     train.info()
-    #val.info()
-    
-    for cls in classes:
-        train._balance_one_class_vs_others(
-            class_name=cls,
-            transforms=get_train_transforms(),
-            save_results=True,
-            count_aug_for_others=False,
-            n_workers=4
-        )
+    # val.info()
+
+    # for cls in classes:
+    #     train._balance_one_class_vs_others(
+    #         class_name=cls,
+    #         transforms=get_train_transforms(),
+    #         save_results=True,
+    #         count_aug_for_others=False,
+    #         n_workers=4
+    #     )
         
 
     # for i in range(5):
@@ -374,7 +439,3 @@ if __name__ == '__main__':
     #     train.info()
     #     print("--" * 20, "Validation", "--" * 20)
     #     val.info()
-
-    # splits_folder = "/datasets/terumo-splits-augmented/"
-    # for qty_splits in list(range(5,11)):
-    #     ds.generate_cross_validation_splits(qty_splits, out_dir=os.path.join(splits_folder,f'{qty_splits}_splits'))
