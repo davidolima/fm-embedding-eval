@@ -137,7 +137,6 @@ class GlomerulusDataset(Dataset):
         print(f"Dataset: {self.__class__.__name__}", f"[{self.one_vs_all} vs All]" if self.one_vs_all else "")
         print(f"Number of images: {len(self.data)}")
         count = self.count_images_per_class()
-        print(count.items()) #REMOVE
         if self.one_vs_all:
             print(f"  + Positive class ({self.one_vs_all}): {count[self.one_vs_all]}")
             print(f"  - Negative class (Others): {count['others']}")

@@ -168,6 +168,7 @@ if __name__ == '__main__':
         parser.add_argument("-s", "--skip-model", action="extend", nargs='+', default=[])
         parser.add_argument("--classes",    action="extend", nargs='+', default=[])
         parser.add_argument("--image-size", type=int, default=224)
+        parser.add_argument("--one-vs-all", type=str, default=None, help="Load dataset as one-vs-all classification.")
         parser.add_argument("--mae-checkpoint", type=str, default="./models/checkpoints/MAE/base.pth", help="checkpoint path for MAE.")
         parser.add_argument("--mae-size", type=str, default="all", help="MAE model size: all, base, large or huge")
         parser.add_argument("--mae-repr-method", type=str, default="all", help="Strategy for representing MAE patch-wise embeddings as a single embedding vector. Available options: all, full, mean, mean+cls or cls_tokens_only")
@@ -189,7 +190,22 @@ if __name__ == '__main__':
     if 'terumo' in args.classes:
         args.classes = ['Crescent', 'Sclerosis', 'Normal', 'Podocitopatia', 'Hypercelularidade', 'Membranous']
 
-    dataset = GlomerulusDataset(root_dir=args.input_dir, classes=args.classes, transforms=transforms) 
+
+    if args.one_vs_all is not None:
+        dataset = GlomerulusDataset(
+            root_dir=args.input_dir, 
+            classes=args.classes, 
+            transforms=transforms, 
+            one_vs_all=args.one_vs_all,
+            consider_augmented='positive_only'
+        )
+
+    else:
+        dataset = GlomerulusDataset(
+            root_dir=args.input_dir,
+            classes=args.classes, 
+            transforms=transforms
+        ) 
     
     models_to_eval = []
     for model in MODELS:
