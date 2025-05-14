@@ -1,6 +1,7 @@
 import os
 import random
 from multiprocessing import Pool
+from typing import *
 
 import torch 
 from torchvision.utils import save_image
@@ -13,7 +14,7 @@ import albumentations as A
 from config import Config
 import cv2
 
-def get_train_transforms(seed: int = 42):
+def get_train_transforms(seed: int = 42) -> A.Compose:
     albumentations_t = A.Compose([
         A.HorizontalFlip(Config.P_HORIZONTAL_FLIP),
         A.VerticalFlip(Config.P_VERTICAL_FLIP),
@@ -72,9 +73,17 @@ def get_test_transforms():
     ])
     return albumentations_t
 
-def apply_to_one_image(image_path: str, transforms: A.Compose, save_path: str) -> str:
+def apply_to_one_image(image_path: str, transforms: A.Compose, save_path: Optional[str] = None) -> Any:
     """
     Apply transforms to an image and save the result.
+    
+    Args:
+        image_path (str): Path to the input image.
+        transforms (A.Compose): Albumentations transformations to apply.
+        save_path (str, optional): Path to save the transformed image. If None, the image is not saved.
+    Returns:
+        str: Path to the saved image if save_path is provided.
+        Any: Transformed image if save_path is None.
     """
     image = Image.open(image_path).convert('RGB')
     image = np.array(image)
@@ -82,20 +91,23 @@ def apply_to_one_image(image_path: str, transforms: A.Compose, save_path: str) -
     augmented_image = transforms(image=image)    
     augmented_image = augmented_image['image']
 
-    # Prevent duplicates
-    if os.path.basename(save_path) in os.listdir(os.path.dirname(save_path)):
-        i = 1
-        new_name = os.path.basename(save_path).split(".")[0] + f"_{i}." + os.path.basename(save_path).split(".")[-1]
-        while new_name in os.listdir(os.path.dirname(save_path)):
-            i += 1
-            new_name = os.path.basename(save_path).split(".")[0] + f"_{i}." + os.path.basename(save_path).split(".")[-1]
-        save_path = os.path.join(os.path.dirname(save_path), new_name)
+    if save_path:
+        # Prevent duplicates
+        if os.path.basename(save_path) in os.listdir(os.path.dirname(save_path)):
+            i = 1
+            new_name = os.path.basename(save_path).split(".")[0] + f"_augmented_{i}." + os.path.basename(save_path).split(".")[-1]
+            while new_name in os.listdir(os.path.dirname(save_path)):
+                i += 1
+                new_name = os.path.basename(save_path).split(".")[0] + f"_augmented_{i}." + os.path.basename(save_path).split(".")[-1]
+            save_path = os.path.join(os.path.dirname(save_path), new_name)
 
-    save_image(augmented_image.float() / 255.0, save_path)  # Normalize to [0, 1]
+        save_image(augmented_image.float() / 255.0, save_path)  # Normalize to [0, 1]
+        
+        return save_path
 
-    return save_path
+    return augmented_image
 
-def apply_to_images(image_paths: list[str], transforms: A.Compose, save_dir: str, shuffle: bool = False, limit: int = -1, n_workers: int = 4) -> list[str]:
+def apply_to_images(image_paths: list[str], transforms: A.Compose, save_dir: Optional[str], shuffle: bool = False, limit: int = -1, n_workers: int = 4) -> list[str]:
     """
     Apply transforms to a list of images and save the results.
     """
@@ -116,17 +128,18 @@ def apply_to_images(image_paths: list[str], transforms: A.Compose, save_dir: str
     for i in range(0, len(images), n_workers):
         batch = images[i:i + n_workers]
         with Pool(processes=n_workers) as pool:
-            generated_batch = pool.starmap(apply_to_one_image, [(os.path.join(image_path), get_train_transforms(seed=seed), os.path.join(save_dir, os.path.basename(image_path))) for seed, image_path in enumerate(batch)])
-        
+            generated_batch = pool.starmap(
+                apply_to_one_image,
+                [
+                    ( # Arguments for function call
+                        os.path.join(image_path), 
+                        get_train_transforms(seed=seed),
+                        os.path.join(save_dir, os.path.basename(image_path)) if save_dir else None
+                    )
+                    for seed, image_path in enumerate(batch)
+                ]
+            )
         generated_images.extend(generated_batch)
-
-    # generated_images = []
-    # for image_path in tqdm(images):
-    #     filename = os.path.basename(image_path)
-    #     save_path = os.path.join(save_dir, filename)
-
-    #     saved_image_path = apply_to_one_image(image_path, transforms, save_path)
-    #     generated_images.append(saved_image_path)
 
     return generated_images
 

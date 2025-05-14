@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
+import albumentations as A
 
 import os
 import json
@@ -104,52 +105,138 @@ class GlomerulusDataset(Dataset):
         print(f"Classes: {self.classes}")
         print(f"Root directory: {self.root}")
 
-    def count_images_per_class(self) -> dict[str, int]:
+    def count_images_per_class(self, count_augmented: bool = True) -> dict[str, int]:
         """
         Count the number of images per class.
         """
         count = {c: 0 for c in self.classes}
-        for _, label in self.data:
-            count[self.classes[label]] += 1
+        if count_augmented:
+            for _, label in self.data:
+                count[self.classes[label]] += 1
+        else:
+            for img_path, label in self.data:
+                if 'augmented' not in img_path:
+                    count[self.classes[label]] += 1
         return count
 
-    def balance_classes(self) -> None:
+    def _augment_class(self, class_name: str, n_images: int, save_dir: Optional[str] = None, transforms: None | A.Compose | transforms.Compose = None, n_workers: int = 4) -> None:
         """
-        Balance the classes in the dataset.
+        Apply transforms to a specified class' images and 
+        """
+        
+        if transforms is None:
+            transforms = get_train_transforms()
+
+        generated_images = []
+        class_images = [x for x, label in self.data if label == self.classes.index(class_name)]
+        while len(generated_images) < n_images:
+            qty_to_add = n_images - len(generated_images)
+            if qty_to_add <= 0:
+                break
+
+            generated_batch = apply_to_images(
+                image_paths=class_images,
+                transforms=transforms,
+                save_dir=save_dir if save_dir is not None else None,
+                shuffle=True,
+                limit=qty_to_add,
+                n_workers=4,
+            )
+            print("[+] Generated", len(generated_batch), f"images for class {class_name}. {qty_to_add} images left...")
+            generated_images.extend((x, self.classes.index(class_name)) for x in generated_batch)
+
+        # Add them to the dataset
+        self.data.extend(generated_images)
+
+    def _balance_all_classes_equally(self, transforms: A.Compose | transforms.Compose, save_results: bool = False, n_workers: int = 4) -> None:
+        """
+        Make all classes have the same number of images.
         """
         count = self.count_images_per_class()
         max_count = max(count.values())
 
         print(f"[!] Balancing each class to {max_count} images.")
-
-        transforms = get_train_transforms()
-
         for c, n in tqdm(count.items()):
             if n < max_count:
-                # Get the difference
-                diff = max_count - n
-                
-                # Get random images from the class
-                class_images = [x for x, label in self.data if label == self.classes.index(c)]
-                random_images = np.random.choice(class_images, diff, replace=True)
-                
-                # Apply augmentations to the images
-                random_images = apply_to_images(
-                    image_paths=random_images,
-                    transforms=transforms,
-                    save_dir=os.path.join(self.root, f"{c}_augmented"),
-                    shuffle=True,
-                    limit=diff,
-                    n_workers=16,
+                self._augment_class(
+                    class_name = c, 
+                    n_images   = max_count - n,
+                    transforms = transforms,
+                    save_dir   = os.path.join(self.root, f"{c}_augmented") if save_results else None,
+                    n_workers  = n_workers,
                 )        
-
-                # Add them to the dataset
-                self.data.extend([(x, self.classes.index(c)) for x in random_images])
                 print(f"[!] Class {c} balanced. ({n} + {len(random_images)} -> {max_count})")
+
             else:
                 print(f"[!] Class {c} already balanced. ({n} images)")
 
         print(f"[!] Classes balanced. ({len(self.data)} images and {len(self.classes)} classes)")
+
+    def _balance_one_class_vs_others(self, class_name: str, transforms: A.Compose | transforms.Compose, save_results: bool = False, count_aug_for_others: bool=True, n_workers: int = 4) -> None:
+        """
+        Balance one class against all others.
+
+        Args:
+            class_name (str): Class to balance against all others.
+            transforms (A.Compose | transforms.Compose): Transformations to apply to the images.
+            save_results (bool): Whether to save the augmented images or not.
+            count_aug_for_others (bool): Whether to count augmented images for other classes or not. 
+                                         Useful for generating one vs all balancing for all classes.
+            n_workers (int): Number of workers to use for augmentations.
+
+        Ex.: Balance Class1 against others.
+           - Class1: x images    ->  Class1: x + (x - (y+z)) images
+           - Class2: y images    ->  Class2: y images 
+           - Class3: z images    ->  Class3: z images
+        """
+        if class_name not in self.classes:
+            raise ValueError(f"[!] Class {class_name} not found in the dataset. Available classes: {self.classes}")
+        
+        qty_images_in_class = self.count_images_per_class()[class_name]
+        images_per_class = self.count_images_per_class(count_augmented=count_aug_for_others)
+
+        qty_images_in_others = sum([images_per_class[c] for c in self.classes if c != class_name])
+
+        diff = qty_images_in_others - qty_images_in_class
+        if diff <= 0:
+            print(f"[!] Class {class_name} already balanced. ({qty_images_in_class} images)")
+            return
+
+        print(f"[!] Balancing class {class_name} ({qty_images_in_class} images) against all others ({qty_images_in_others} images). Adding {diff} images.")
+        self._augment_class(
+            class_name = class_name, 
+            n_images   = diff,
+            transforms = transforms,
+            save_dir   = os.path.join(self.root, f"{class_name}_one_vs_all_augmented") if save_results else None,
+            n_workers  = n_workers,
+        )
+
+    def balance_classes(self, one_vs_all: str = None, save_results: bool = False, n_workers: int = 4) -> None:
+        """
+        Balance the classes in the dataset.
+        Args:
+            one_vs_all (str): Class to balance against all others. If None, all classes will be balanced equally.
+            save_results (bool): Whether to save the augmented images or not.
+            n_workers (int): Number of workers to use for augmentations.
+        """
+
+        transforms = get_train_transforms()
+
+        if one_vs_all:
+            self._balance_one_class_vs_others(
+                class_name=one_vs_all,
+                transforms=transforms,
+                save_results=save_results,
+                n_workers=n_workers,
+                count_aug_for_others=True,
+            )            
+        else:
+            self._balance_all_classes_equally(
+                transforms=transforms,
+                save_results=save_results,
+                n_workers=n_workers
+            )
+
         self.info()
 
     def load_splits_from_json(self, split_no: int | list[int], json_path: str, clear_data: bool = True) -> None: 
@@ -260,24 +347,33 @@ class GlomerulusDataset(Dataset):
 if __name__ == '__main__':
     classes = ["Crescent", "Hypercelularidade", "Membranous", "Normal", "Podocitopatia", "Sclerosis"]
     train = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
-    val = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
+    #val = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
 
     train.info()
-    val.info()
+    #val.info()
     
-    for i in range(5):
-        val_split = i+1
-        train_splits = list(range(1, 6))
-        train_splits.remove(val_split)
+    for cls in classes:
+        train._balance_one_class_vs_others(
+            class_name=cls,
+            transforms=get_train_transforms(),
+            save_results=True,
+            count_aug_for_others=False,
+            n_workers=4
+        )
+        
 
-        val.load_splits_from_json(val_split, "/datasets/terumo-splits-augmented/10_splits/splits_info.json", clear_data=True)
-        train.load_splits_from_json(train_splits, "/datasets/terumo-splits-augmented/10_splits/splits_info.json", clear_data=True)
+    # for i in range(5):
+    #     val_split = i+1
+    #     train_splits = list(range(1, 6))
+    #     train_splits.remove(val_split)
 
-        print("--" * 20, "Train", "--" * 20)
-        train.info()
-        print("--" * 20, "Validation", "--" * 20)
-        val.info()
+    #     val.load_splits_from_json(val_split, "/datasets/terumo-splits-augmented/10_splits/splits_info.json", clear_data=True)
+    #     train.load_splits_from_json(train_splits, "/datasets/terumo-splits-augmented/10_splits/splits_info.json", clear_data=True)
 
+    #     print("--" * 20, "Train", "--" * 20)
+    #     train.info()
+    #     print("--" * 20, "Validation", "--" * 20)
+    #     val.info()
 
     # splits_folder = "/datasets/terumo-splits-augmented/"
     # for qty_splits in list(range(5,11)):
