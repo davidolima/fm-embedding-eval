@@ -1,8 +1,9 @@
 import numpy as np
+import torch.nn as nn
 
 def save_embedding_to_file(
     fpath: str,
-    model: str,
+    model: nn.Module,
     fnames: np.array,
     labels: np.array,
     embeddings: np.array,
@@ -21,7 +22,8 @@ def save_embedding_to_file(
     print(f"[*] Saving embedding to file: `{fpath}`...", end=' ')
     with open(fpath, 'wb') as f:
         np.save(f, {
-            "model": model,
+            "model": model.get_name(),
+            "model_embedding_dim": model.get_feat_dim(),
             "fnames": fnames,
             "labels": labels,
             "embeddings": embeddings,
