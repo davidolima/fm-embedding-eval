@@ -72,7 +72,7 @@ def single_model_extraction(
         batch_end = batch_start + batch_size
 
         batch_features = model(x)
-        if model_repr_method == 'full':
+        if model.name.startswith('mae') and model_repr_method == 'full':
             batch_features = batch_features.flatten(1)
         else:
             batch_features = batch_features.squeeze()
@@ -93,7 +93,7 @@ def single_model_extraction(
     extracted_feats.flush()
     save_embedding_to_file(
         fpath = os.path.join(output_path, model.name + "_info.npy"),
-        model = model.name,
+        model = model,
         fnames = fnames,
         labels = labels,
         embeddings = os.path.join(output_path, model.name+'.npy'),
@@ -195,7 +195,7 @@ if __name__ == '__main__':
         dataset = GlomerulusDataset(
             root_dir=args.input_dir, 
             classes=args.classes, 
-            transforms=transforms, 
+            transforms=transforms,
             one_vs_all=args.one_vs_all,
             consider_augmented='positive_only'
         )

@@ -34,7 +34,7 @@ class UNI(nn.Module):
         return self.name
 
     def get_feat_dim(self):
-        return self.get_feat_dim
+        return self.feat_dim
 
     def __repr__(self):
         return self.get_name()
