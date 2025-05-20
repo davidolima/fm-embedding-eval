@@ -15,7 +15,14 @@ from embedding.utils import save_embedding_to_file
 from data.glomerulus import GlomerulusDataset 
 from utils.download_models import download_models, authenticate_hf
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Console output
+        logging.FileHandler("./logs/extraction.log", mode='w')  # File output
+    ]
+)
 logger = logging.getLogger(__name__)
 
 def single_model_extraction(
