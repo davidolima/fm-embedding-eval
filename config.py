@@ -4,6 +4,7 @@ from typing import *
 @dataclass
 class Config:
     SUPPORTED_IMAGE_TYPES: Tuple[str] = ('png', 'jpg', 'jpeg')
+    CLASSES: Tuple[str] = ("Crescent", "Hypercelularidade", "Membranous", "Normal", "Podocitopatia", "Sclerosis")
 
     # Transformations
     P_HORIZONTAL_FLIP = 0.5

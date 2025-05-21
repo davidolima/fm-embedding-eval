@@ -17,7 +17,7 @@ from utils.download_models import download_models, authenticate_hf
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(),  # Console output
         logging.FileHandler("./logs/extraction.log", mode='w')  # File output
