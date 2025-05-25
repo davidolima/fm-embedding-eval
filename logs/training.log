@@ -1,0 +1,14 @@
+2025-05-23 23:40:34,233 [INFO] --------------------Crescent--------------------
+2025-05-23 23:40:34,233 [INFO] => Executando para 2 folds.
+2025-05-23 23:40:34,637 [INFO] Training starting. Current configuration:
+2025-05-23 23:40:34,637 [INFO] Model: EfficientNet
+2025-05-23 23:40:34,637 [INFO] Device: cuda
+2025-05-23 23:40:34,637 [INFO] Optimizer: AdamW
+2025-05-23 23:40:34,637 [INFO] Learning rate: 0.001
+2025-05-23 23:40:34,637 [INFO] Epochs: 100
+2025-05-23 23:40:34,637 [INFO] Saving checkpoints to ./effnetb0-checkpoints-correct/Crescent/2_folds.
+2025-05-23 23:40:34,637 [INFO] Early stopping set to 10 epochs.
+2025-05-23 23:43:00,587 [INFO] [Epoch 1/100]| Loss: 0.2111 | Accuracy: 0.9140 | Precision: 0.9159 | Recall: 0.9118 | F1 Score: 0.9138 
+2025-05-23 23:45:01,057 [INFO] Loss decreased inf -> 0.09387330647790805. Model saved to `./effnetb0-checkpoints-correct/Crescent/2_folds/best_val_loss.pth`.
+2025-05-23 23:45:01,057 [INFO] [Validation 1/100]| Loss: 0.0939 | Accuracy: 0.9661 | Precision: 0.9443 | Recall: 0.9906 | F1 Score: 0.9669 
+2025-05-23 23:47:18,916 [INFO] [Epoch 2/100]| Loss: 0.1198 | Accuracy: 0.9547 | Precision: 0.9518 | Recall: 0.9580 | F1 Score: 0.9549 

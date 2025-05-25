@@ -1,3 +1,4 @@
+import os
 from typing import *
 
 import torch
@@ -47,7 +48,7 @@ class Trainer:
         val_loader: DataLoader,
         early_stopping: Optional[int] = None,
         save_path: Optional[str] = './checkpoints/'
-    ):
+    ) -> dict[str, float]:
         self.model.to(self.device)
 
         logger.info("Training starting. Current configuration:")
@@ -60,6 +61,8 @@ class Trainer:
         if early_stopping:
             logger.info(f"Early stopping set to {early_stopping} epochs.")
 
+        os.makedirs(save_path, exist_ok=True)
+
         train_metrics = {
             'loss': metrics.Loss(),
             'accuracy': metrics.Accuracy(),
@@ -67,8 +70,8 @@ class Trainer:
             'recall': metrics.Recall(),
             'f1_score': metrics.F1Score(),
         }
-        
-        best_loss = float('inf')
+
+        best_loss_metrics = {x: float('inf') for x in train_metrics.keys()}
         early_stopping_counter = 0
         for epoch in tqdm(range(num_epochs), desc="Training"):
             self.model.train()
@@ -94,29 +97,31 @@ class Trainer:
                 train_metrics['recall'].update(preds, labels)
                 train_metrics['f1_score'].update(preds, labels)
 
-            running_loss /= len(train_loader)
-            logger.info(f"[Epoch {epoch+1}/{num_epochs}] Loss: {running_loss}" + "".join([f"| {metric}" for metric in metrics.values()]))
+            logger.info(f"[Epoch {epoch+1}/{num_epochs}]" + "".join([f"| {metric} " for metric in train_metrics.values()]))
 
             val_metrics = self.validate(val_loader)
-            if val_metrics['loss'] < best_loss:
+            if val_metrics['loss'].compute() < best_loss_metrics['loss'].compute():
                 save_fpath = os.path.join(save_path, f"best_val_loss.pth")
                 self.save_model(save_fpath)
-                logger.info(f"Loss decreased {best_loss} -> {val_metrics['loss']}. Model saved to `{save_fpath}`.")
-                best_loss = val_metrics['loss']
+                logger.info(f"Loss decreased {best_loss_metrics['loss'].compute()} -> {val_metrics['loss'].compute()}. Model saved to `{save_fpath}`.")
+                best_loss_metrics = val_metrics.copy()
             else:
                 early_stopping_counter += 1
                 if early_stopping and early_stopping_counter >= early_stopping:
                     logger.info(f"Early stopping triggered after {early_stopping} epochs without improvement.")
                     break
 
-            logger.info(f"[Validation {epoch+1}/{num_epochs}] Loss: {val_metrics['loss']:.4f}" + "".join([f"| {metric}" for metric in val_metrics.values()]))
+            logger.info(f"[Validation {epoch+1}/{num_epochs}]" + "".join([f"| {metric} " for metric in val_metrics.values()]))
         
-        logger.info(f"Training completed. Best validation loss: {best_loss:.4f}")
-        self._print_metrics(val_metrics)
+        logger.info(f"Training completed. Best model achieved:")
+        self._print_metrics(best_loss_metrics)
+        
         if save_path:
             save_fpath = os.path.join(save_path, f"last_epoch_{epoch+1}.pth")
             self.save_model(save_fpath)
             logger.info(f"Last model saved to `{save_fpath}`.")
+
+        return best_loss_metrics
 
     def validate(self, val_loader: DataLoader) -> Dict[str, float]:
         self.model.eval()
@@ -131,9 +136,10 @@ class Trainer:
         with torch.no_grad():
             for inputs, labels, _ in tqdm(val_loader, desc="Validation"):
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
-                outputs = self.model(inputs)
-
+                
+                outputs = self.model(inputs).squeeze()
                 loss = self.criterion(outputs, labels.float())
+
                 val_metrics['loss'].update(loss.item())
 
                 preds = torch.argmax(outputs, 1) if outputs.ndim > 1 else (outputs > 0.5).long()
@@ -142,11 +148,11 @@ class Trainer:
                 val_metrics['recall'].update(preds, labels)
                 val_metrics['f1_score'].update(preds, labels)
 
-        return {k: v.compute() for k, v in val_metrics.items()}
+        return val_metrics 
     
-    def _print_metrics(self, metrics: Dict[str, float]) -> None:
+    def _print_metrics(self, metrics: Dict[str, Callable]) -> None:
         for _, metric in metrics.items():
-            logger.info(metric)
+            logger.info(str(metric))
 
     def save_model(self, path: str) -> None:
         torch.save(self.model.state_dict(), path)

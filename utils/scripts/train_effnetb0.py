@@ -17,7 +17,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(),  # Console output
-        logging.FileHandler("./logs/efficientnet_b0_training.log", mode='w')  # File output
+        logging.FileHandler("./logs/efficientnet_b0_training_correct.log", mode='w')  # File output
     ]
 )
 logger = logging.getLogger(__name__)
@@ -32,35 +32,52 @@ def build_model(out_features: int = 1) -> efficientnet_b0:
     
 if __name__ == '__main__':
     N_EPOCHS = 100
-    CHECKPOINT_PATH = "./effnetb0-checkpoints/"
+    CHECKPOINT_PATH = "./effnetb0-checkpoints-correct/"
     SPLITS_JSON_FPATH = 'assets/folds_indices_Data_{}.json'
+    LR = 1e-3
+
+    os.makedirs(CHECKPOINT_PATH, exist_ok=True)
 
     transforms = T.Compose([
         T.ToTensor(),
         EfficientNet_B0_Weights.IMAGENET1K_V1.transforms(),
     ])
 
+    metrics = ('loss', 'accuracy', 'precision', 'recall', 'f1_score')
+
+
     for class_name in Config.CLASSES:
         logger.info('-'*20 + f"{class_name}" + '-'*20)
+        cls_history = {}
         for fold_qty in (2,3,4,5):
-            logger.info(f"=> Executando para {fold_qty} folds.")
-            
-            trainer = Trainer(build_model(), nn.BCELoss(), lr=1e-3)
 
-            train, val = load_splits_from_json(SPLITS_JSON_FPATH.format(class_name), fold_qty, one_vs_all=class_name)
+            fold_metrics = {x: list() for x in metrics}
+            for i in range(1, fold_qty+1):
+                logger.info(f"=> Executando para {fold_qty} folds.")
+                
+                trainer = Trainer(build_model(), nn.BCELoss(), lr=LR)
 
-            train.transforms = transforms
-            val.transforms = transforms
+                train, val = load_splits_from_json(SPLITS_JSON_FPATH.format(class_name), fold_qty, one_vs_all=class_name)
 
-            train_loader = DataLoader(train, batch_size=32, shuffle=True)
-            val_loader = DataLoader(val, batch_size=32, shuffle=True)
+                train.transforms = transforms
+                val.transforms = transforms
 
-            trainer.train(
-                num_epochs = N_EPOCHS, 
-                train_loader = train_loader, 
-                val_loader = val_loader,
-                early_stopping = 10,
-                save_path = os.path.join(CHECKPOINT_PATH, class_name, f"{fold_qty}_folds")
-            )
-            break
-        break
+                train_loader = DataLoader(train, batch_size=32, shuffle=True)
+                val_loader = DataLoader(val, batch_size=32, shuffle=True)
+
+                fold_results = trainer.train(
+                    num_epochs = N_EPOCHS, 
+                    train_loader = train_loader, 
+                    val_loader = val_loader,
+                    early_stopping = 10,
+                    save_path = os.path.join(CHECKPOINT_PATH, class_name, f"{fold_qty}_folds")
+                )
+
+                for metric in metrics:
+                    fold_metrics[metric].append(fold_results[metric])
+
+            cls_history[f'{fold_qty}_folds'] = fold_metrics
+
+        with open(os.path.join(CHECKPOINT_PATH, f"{class_name}_training_log.txt"), 'w+') as f:
+            json.dump(cls_history, f, indent=4)
+
