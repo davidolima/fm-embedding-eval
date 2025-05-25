@@ -71,7 +71,7 @@ class Trainer:
             'f1_score': metrics.F1Score(),
         }
 
-        best_loss_metrics = {x: float('inf') for x in train_metrics.keys()}
+        best_loss_metrics = None 
         early_stopping_counter = 0
         for epoch in tqdm(range(num_epochs), desc="Training"):
             self.model.train()
@@ -100,10 +100,10 @@ class Trainer:
             logger.info(f"[Epoch {epoch+1}/{num_epochs}]" + "".join([f"| {metric} " for metric in train_metrics.values()]))
 
             val_metrics = self.validate(val_loader)
-            if val_metrics['loss'].compute() < best_loss_metrics['loss'].compute():
+            if best_loss_metrics is None or val_metrics['loss'].compute() < best_loss_metrics['loss'].compute():
                 save_fpath = os.path.join(save_path, f"best_val_loss.pth")
                 self.save_model(save_fpath)
-                logger.info(f"Loss decreased {best_loss_metrics['loss'].compute()} -> {val_metrics['loss'].compute()}. Model saved to `{save_fpath}`.")
+                logger.info(f"Loss decreased {best_loss_metrics['loss'].compute() if best_loss_metrics is not None else '-'} -> {val_metrics['loss'].compute()}. Model saved to `{save_fpath}`.")
                 best_loss_metrics = val_metrics.copy()
             else:
                 early_stopping_counter += 1

@@ -15,7 +15,7 @@ def get_class_from_file_name(filename, one_vs_all:str = None, classes: list[str]
     return classes[idx]
 
 
-def load_splits_from_json(json_fpath:str, fold_no: int, one_vs_all: str = None) -> tuple[GlomerulusDataset, GlomerulusDataset]:
+def load_splits_from_json(json_fpath:str, fold_no: int, val_split_idx: int, one_vs_all: str = None) -> tuple[GlomerulusDataset, GlomerulusDataset]:
     """
     Load cross-validation splits from a JSON file.
 
@@ -47,12 +47,11 @@ def load_splits_from_json(json_fpath:str, fold_no: int, one_vs_all: str = None) 
     train = GlomerulusDataset('', classes=classes, one_vs_all=one_vs_all, consider_augmented=True if one_vs_all is None else 'positive_only')
     test = GlomerulusDataset('', classes=classes, one_vs_all=one_vs_all, consider_augmented=True if one_vs_all is None else 'positive_only')
 
-    for i in range(len(data['folds'][fold_no])):
-        train_files = data['folds'][fold_no][i]['train_files']
-        test_files = data['folds'][fold_no][i]['test_files']
+    train_files = data['folds'][fold_no][val_split_idx]['train_files']
+    test_files = data['folds'][fold_no][val_split_idx]['test_files']
 
-        train.data.extend([(x,classes.index(get_class_from_file_name(x, one_vs_all=one_vs_all))) for x in train_files])
-        test.data.extend([(x, classes.index(get_class_from_file_name(x, one_vs_all=one_vs_all))) for x in test_files])
+    train.data.extend([(x,classes.index(get_class_from_file_name(x, one_vs_all=one_vs_all))) for x in train_files])
+    test.data.extend([(x, classes.index(get_class_from_file_name(x, one_vs_all=one_vs_all))) for x in test_files])
 
     return train, test
 

@@ -50,17 +50,28 @@ if __name__ == '__main__':
         logger.info('-'*20 + f"{class_name}" + '-'*20)
         cls_history = {}
         for fold_qty in (2,3,4,5):
+            logger.info(f"=> Executando para {fold_qty} folds.")
 
             fold_metrics = {x: list() for x in metrics}
             for i in range(1, fold_qty+1):
-                logger.info(f"=> Executando para {fold_qty} folds.")
+                logger.info(f"==> Validando no fold {i}")
                 
                 trainer = Trainer(build_model(), nn.BCELoss(), lr=LR)
 
-                train, val = load_splits_from_json(SPLITS_JSON_FPATH.format(class_name), fold_qty, one_vs_all=class_name)
+                train, val = load_splits_from_json(
+                    json_fpath=SPLITS_JSON_FPATH.format(class_name),
+                    fold_no=fold_qty,
+                    val_split_idx=i,
+                    one_vs_all=class_name
+                )
 
                 train.transforms = transforms
                 val.transforms = transforms
+
+                train_ds_info = train.info(dont_print=True)
+                val_ds_info = val.info(dont_print=True)
+
+                [logger.info(line) for line in (" --- Training ---\n" + train_ds_info + "--- Validation ---\n" + val_ds_info).split('\n')]
 
                 train_loader = DataLoader(train, batch_size=32, shuffle=True)
                 val_loader = DataLoader(val, batch_size=32, shuffle=True)
@@ -74,7 +85,7 @@ if __name__ == '__main__':
                 )
 
                 for metric in metrics:
-                    fold_metrics[metric].append(fold_results[metric])
+                    fold_metrics[metric].append(fold_results[metric].compute())
 
             cls_history[f'{fold_qty}_folds'] = fold_metrics
 

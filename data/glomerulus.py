@@ -133,21 +133,29 @@ class GlomerulusDataset(Dataset):
         print(f"[!] Dataset loaded. ({len(data)} images and {len(classes)} classes)")
         return data
 
-    def info(self) -> None:
+    def info(self, dont_print=False) -> None:
         """
         Print dataset info.
         """
-        print(f"Dataset: {self.__class__.__name__}", f"[{self.one_vs_all} vs All]" if self.one_vs_all else "")
-        print(f"Number of images: {len(self.data)}")
+        out = ''
+        out += f"Dataset: {self.__class__.__name__} " + f"[{self.one_vs_all} vs All]\n" if self.one_vs_all else '\n'
+
+        out += f"Number of images: {len(self.data)}\n"
+ 
         count = self.count_images_per_class()
         if self.one_vs_all:
-            print(f"  + Positive class ({self.one_vs_all}): {count[self.one_vs_all]}")
-            print(f"  - Negative class (Others): {count['others']}")
+            out += f"  + Positive class ({self.one_vs_all}): {count[self.one_vs_all]}\n"
+            out += f"  - Negative class (Others): {count['others']}\n"
         else:
-            [print(f"  - {self.classes[c]}: {n}") for c, n in count.items()]
-        print(f"Number of classes: {len(self.classes)}")
-        print(f"Root directory: {self.root}")
-        print("Considering augmented images:", self.consider_augmented)
+            out.join([f"  - {self.classes[c]}: {n}\n" for c, n in count.items()])
+    
+        out += f"Number of classes: {len(self.classes)}\n"
+        out += f"Root directory: {self.root}\n"
+        out += f"Considering augmented images: {self.consider_augmented}\n"
+
+        if not dont_print:
+            print(out, end='')
+        return out
 
     def count_images_per_class(self, count_augmented: bool = True) -> dict[str, int]:
         """
@@ -408,17 +416,18 @@ if __name__ == '__main__':
     classes = ["Crescent", "Hypercelularidade", "Membranous", "Normal", "Podocitopatia", "Sclerosis"]
 
 
-    train = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
+    #train = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes)
     #splits_folder = "/datasets/terumo-splits-augmented/"
     #for cls in classes:
     #    for qty_splits in list(range(5,11)):
     #        train = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes, one_vs_all=cls, consider_augmented='positive_only')
     #        train.generate_cross_validation_splits(qty_splits, out_dir=os.path.join(splits_folder, f'{cls}_vs_all', f'{qty_splits}_splits'))
         
-    # val = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes, one_vs_all="Crescent", consider_augmented='positive_only')
+    train = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes, one_vs_all="Crescent", consider_augmented='positive_only')
+    # val   = GlomerulusDataset("/datasets/terumo-data-jpeg/", classes=classes, one_vs_all="Crescent", consider_augmented='positive_only')
 
     train.info()
-    # val.info()
+    #val.info()
 
     # for cls in classes:
     #     train._balance_one_class_vs_others(
