@@ -53,15 +53,15 @@ if __name__ == '__main__':
             logger.info(f"=> Executando para {fold_qty} folds.")
 
             fold_metrics = {x: list() for x in metrics}
-            for i in range(1, fold_qty+1):
-                logger.info(f"==> Validando no fold {i}")
+            for val_fold_idx in range(fold_qty):
+                logger.info(f"==> Validando no fold {val_fold_idx+1}")
                 
                 trainer = Trainer(build_model(), nn.BCELoss(), lr=LR)
 
                 train, val = load_splits_from_json(
                     json_fpath=SPLITS_JSON_FPATH.format(class_name),
                     fold_no=fold_qty,
-                    val_split_idx=i,
+                    val_split_idx=val_fold_idx,
                     one_vs_all=class_name
                 )
 
@@ -73,15 +73,15 @@ if __name__ == '__main__':
 
                 [logger.info(line) for line in (" --- Training ---\n" + train_ds_info + "--- Validation ---\n" + val_ds_info).split('\n')]
 
-                train_loader = DataLoader(train, batch_size=32, shuffle=True)
-                val_loader = DataLoader(val, batch_size=32, shuffle=True)
+                train_loader = DataLoader(train, batch_size=64, shuffle=True)
+                val_loader = DataLoader(val, batch_size=64, shuffle=True)
 
                 fold_results = trainer.train(
                     num_epochs = N_EPOCHS, 
                     train_loader = train_loader, 
                     val_loader = val_loader,
                     early_stopping = 10,
-                    save_path = os.path.join(CHECKPOINT_PATH, class_name, f"{fold_qty}_folds")
+                    save_path = os.path.join(CHECKPOINT_PATH, class_name, f"{fold_qty}_folds", str(i))
                 )
 
                 for metric in metrics:
