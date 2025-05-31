@@ -21,6 +21,8 @@ def load_splits_from_json(json_fpath:str, fold_no: int, val_split_idx: int, one_
 
     Args:
         json_fpath (str): Path to the JSON file containing the splits.
+        fold_no (int): How many folds are being used.
+        val_split_idx (int): What split is being used for validation.
 
     Returns:
         tuple: A tuple containing the training and validation datasets.
@@ -45,13 +47,13 @@ def load_splits_from_json(json_fpath:str, fold_no: int, val_split_idx: int, one_
         classes = ['others', one_vs_all]
 
     train = GlomerulusDataset('', classes=classes, one_vs_all=one_vs_all, consider_augmented=True if one_vs_all is None else 'positive_only')
-    test = GlomerulusDataset('', classes=classes, one_vs_all=one_vs_all, consider_augmented=True if one_vs_all is None else 'positive_only')
+    test = GlomerulusDataset('', classes=classes, one_vs_all=one_vs_all, consider_augmented=False)
 
     train_files = data['folds'][fold_no][val_split_idx]['train_files']
-    test_files = data['folds'][fold_no][val_split_idx]['test_files']
-
     train.data.extend([(x,classes.index(get_class_from_file_name(x, one_vs_all=one_vs_all))) for x in train_files])
-    test.data.extend([(x, classes.index(get_class_from_file_name(x, one_vs_all=one_vs_all))) for x in test_files])
+    
+    test_files = data['folds'][fold_no][val_split_idx]['test_files']
+    test.data.extend([(x, classes.index(get_class_from_file_name(x, one_vs_all=one_vs_all))) for x in test_files if 'augmented' not in x])
 
     return train, test
 
