@@ -1,9 +1,12 @@
 import argparse
 import json
 import os
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
+
+from config import Config
 
 def load_training_logs(base_directory='.'):
     """
@@ -18,11 +21,7 @@ def load_training_logs(base_directory='.'):
     
     results = {}
     
-    # Expected class directories
-    class_dirs = ['Crescent', 'Hypercelularidade', 'Membranous', 
-                  'Normal', 'Podocitopatia', 'Sclerosis']
-    
-    for class_name in class_dirs:
+    for class_name in Config.CLASSES:
         class_path = Path(base_directory) / class_name
         log_file = class_path / 'training_log.txt'
         
@@ -31,18 +30,14 @@ def load_training_logs(base_directory='.'):
             continue
         
         try:
-            # Load JSON data
             with open(log_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
             results[class_name] = {}
-            
             # Process each fold configuration
             for fold_key, metrics in data.items():
-                # Extract fold number from key (e.g., "2_folds" -> 2)
                 fold_num = int(fold_key.split('_')[0])
                 
-                # Calculate averages for each metric
                 averaged_metrics = {}
                 for metric_name, values in metrics.items():
                     if isinstance(values, list) and len(values) > 0:
@@ -75,7 +70,6 @@ def create_performance_graph_from_logs(base_directory='.', save_path=None):
         print("No data found. Please check your directory structure and file paths.")
         return
     
-    # Set up the plot with Portuguese title
     plt.figure(figsize=(12, 8))
     plt.style.use('default')
     
@@ -98,7 +92,6 @@ def create_performance_graph_from_logs(base_directory='.', save_path=None):
         'Membranous': '<'
     }
     
-    # Plot each class
     for class_name, class_data in data.items():
         folds = []
         f1_scores = []
@@ -119,7 +112,6 @@ def create_performance_graph_from_logs(base_directory='.', save_path=None):
             
             print(f"{class_name}: Folds {folds}, F1-Scores {[f'{score:.4f}' for score in f1_scores]}")
     
-    # Customize the plot
     plt.title('Desempenho da EfficientNet-B0 por Número de Folds', fontsize=16, pad=20)
     plt.xlabel('Número de Folds', fontsize=12)
     plt.ylabel('F1-Score', fontsize=12)
@@ -144,13 +136,8 @@ def create_performance_graph_from_logs(base_directory='.', save_path=None):
         plt.ylim(min_f1 - 0.01, max_f1 + 0.01)
         plt.xticks(sorted(all_folds))
     
-    # Add grid
     plt.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
-    
-    # Add legend
     plt.legend(loc='center right', bbox_to_anchor=(1.0, 0.5), frameon=True, fancybox=True, shadow=True)
-    
-    # Adjust layout to prevent legend cutoff
     plt.tight_layout()
     
     # Save plot if path provided
@@ -158,7 +145,6 @@ def create_performance_graph_from_logs(base_directory='.', save_path=None):
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         print(f"Graph saved to {save_path}")
     
-    # Show plot
     plt.show()
 
 def print_summary_statistics(base_directory='.'):
@@ -191,13 +177,11 @@ def main(base_directory):
     """
     print("Loading training logs and creating performance graph...")
     
-    # Create the graph
     create_performance_graph_from_logs(
         base_directory=base_directory,
-        save_path='effnetb0_performance_graph.png'  # Remove this line if you don't want to save
+        save_path='effnetb0_performance_graph.png'
     )
     
-    # Print detailed statistics
     print_summary_statistics(base_directory)
 
 if __name__ == "__main__":
