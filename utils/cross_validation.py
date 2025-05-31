@@ -59,7 +59,7 @@ def load_splits_from_json(json_fpath:str, fold_no: int, val_split_idx: int, one_
 
 if __name__ == "__main__":
     class_name = "Crescent"
-    json_fpath = 'assets/folds_indices_Data_{}.json'.format(class_name)
+    json_fpath = 'data/cross-validation-folds/folds_indices_Data_{}.json'.format(class_name)
 
     print("[!] Testing Loading splits from file.")
     train, val = load_splits_from_json(json_fpath, 2, one_vs_all=class_name)

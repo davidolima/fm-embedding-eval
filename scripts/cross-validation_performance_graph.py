@@ -199,14 +199,6 @@ def main(base_directory):
     
     # Print detailed statistics
     print_summary_statistics(base_directory)
-    
-    print("\nGraph generated successfully!")
-    print(f"Make sure your directory structure matches:")
-    print("├── Crescent/")
-    print("│   └── training_log.txt")
-    print("├── Hypercelularidade/")
-    print("│   └── training_log.txt")
-    print("├── ... (other class directories)")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

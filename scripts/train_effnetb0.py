@@ -20,7 +20,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(),  # Console output
-        logging.FileHandler(f"./logs/{SAVE_NAME}.log", mode='w')  # File output
+        logging.FileHandler(f"./results/{SAVE_NAME}/training.log", mode='w')  # File output
     ]
 )
 logger = logging.getLogger(__name__)
@@ -35,8 +35,8 @@ def build_model(out_features: int = 1) -> efficientnet_b0:
     
 if __name__ == '__main__':
     N_EPOCHS = 100
-    CHECKPOINT_PATH = f"./{SAVE_NAME}/"
-    SPLITS_JSON_FPATH = 'assets/folds_indices_Data_{}.json'
+    CHECKPOINT_PATH = f"./results/{SAVE_NAME}/"
+    SPLITS_JSON_FPATH = 'data/cross-validation-folds/folds_indices_Data_{}.json'
     LR = 1e-3
 
     os.makedirs(CHECKPOINT_PATH, exist_ok=True)
