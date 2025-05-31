@@ -11,7 +11,7 @@ python3 -m venv .
 ```
 
 # Replicating the results
-For more options or more specific help, use the flag `--help` before running any given script.
+For more options or more specific help, use the flag `--help` when running any given script.
 
 ## Feature extraction
 ```sh
