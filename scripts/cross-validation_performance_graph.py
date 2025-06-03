@@ -74,6 +74,15 @@ def create_performance_graph_from_logs(base_directory='.', save_path=None):
     plt.style.use('default')
     
     # Define colors and markers for each class
+    name_translation = {
+        'Sclerosis':  'Sclerosis',
+        'Podocitopatia': 'ECDC',
+        'Normal':  'Normal',
+        'Hypercelularidade': 'Hypercellularity',
+        'Crescent': 'Crescent',
+        'Membranous': 'Membranous',
+    }
+
     colors = {
         'Sclerosis': '#1f77b4',      # Blue
         'Podocitopatia': '#ff7f0e',  # Orange
@@ -108,13 +117,13 @@ def create_performance_graph_from_logs(base_directory='.', save_path=None):
                     marker=markers.get(class_name, 'o'),
                     linewidth=2,
                     markersize=8,
-                    label=class_name)
+                    label=name_translation[class_name])
             
             print(f"{class_name}: Folds {folds}, F1-Scores {[f'{score:.4f}' for score in f1_scores]}")
     
-    plt.title('Desempenho da EfficientNet-B0 por Número de Folds', fontsize=16, pad=20)
-    plt.xlabel('Número de Folds', fontsize=12)
-    plt.ylabel('F1-Score', fontsize=12)
+    #plt.title('Desempenho da EfficientNet-B0 por Número de Folds', fontsize=16, pad=20)
+    plt.xlabel('#Folds', fontsize=12)
+    plt.ylabel('F1-score', fontsize=12)
     
     # Set axis limits and ticks
     all_folds = set()
@@ -137,8 +146,8 @@ def create_performance_graph_from_logs(base_directory='.', save_path=None):
         plt.xticks(sorted(all_folds))
     
     plt.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
-    plt.legend(loc='center right', bbox_to_anchor=(1.0, 0.5), frameon=True, fancybox=True, shadow=True)
-    plt.tight_layout()
+    plt.legend(loc='lower right', frameon=True, fancybox=True, shadow=True)
+    plt.ylim(bottom=0.8, top=1.0)
     
     # Save plot if path provided
     if save_path:
@@ -179,7 +188,7 @@ def main(base_directory):
     
     create_performance_graph_from_logs(
         base_directory=base_directory,
-        save_path='effnetb0_performance_graph.png'
+        save_path='./results/effnetb0_performance_graph.pdf'
     )
     
     print_summary_statistics(base_directory)
